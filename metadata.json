@@ -1,0 +1,6 @@
+{
+  "name": "Dreamy Tales Studio",
+  "description": "Premium luxury wedding photography and videography studio in Delhi NCR, capturing timeless candid and cinematic love stories.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
