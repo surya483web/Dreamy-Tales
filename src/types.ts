@@ -27,6 +27,7 @@ export interface AboutSection {
   storyParagraphs: string[];
   photoUrl: string;
   philosophySlides?: PhilosophySlide[];
+  philosophyBgUrl?: string;
 }
 
 export interface PortfolioItem {

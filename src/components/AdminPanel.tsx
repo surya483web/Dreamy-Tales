@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Sliders, Save, Plus, Trash2, Key, Loader2, Inbox, Calendar, Phone, Mail, CheckCircle, Clock, Upload, Pencil, X } from "lucide-react";
 import { StudioContent, Inquiry, PortfolioItem, ServiceItem } from "../types";
+import { getLocalInquiries, saveLocalInquiries } from "../lib/storage";
 
 interface AdminProps {
   currentContent: StudioContent;
@@ -33,6 +34,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [uploadingAbout, setUploadingAbout] = useState(false);
+  const [uploadingPhilosophyBg, setUploadingPhilosophyBg] = useState(false);
   const [uploadingStatsBg, setUploadingStatsBg] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [newSlide, setNewSlide] = useState({
@@ -63,18 +65,18 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    target: "portfolio-media" | "portfolio-thumbnail" | "hero-video" | "about-photo" | "stats-bg" | "philosophy-slide" | "review-left" | "review-right"
+    target: "portfolio-media" | "portfolio-thumbnail" | "hero-video" | "about-photo" | "stats-bg" | "philosophy-slide" | "review-left" | "review-right" | "philosophy-bg"
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadError("");
 
-    // Increased safeguard check to 45 MB to easily accommodate high-resolution device photos and cinematic videos
-    const MAX_FILE_SIZE = 45 * 1024 * 1024; // 45 MB limit
+    // Increased safeguard check to 500 MB to easily accommodate high-resolution device photos and cinematic videos
+    const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB limit
     if (file.size > MAX_FILE_SIZE) {
       setUploadError(
-        `File is too large (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a file smaller than 45 MB, or paste a direct web URL.`
+        `File is too large (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a file smaller than 500 MB, or paste a direct web URL.`
       );
       return;
     }
@@ -83,6 +85,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
     else if (target === "portfolio-thumbnail") setUploadingThumbnail(true);
     else if (target === "hero-video") setUploadingHero(true);
     else if (target === "about-photo") setUploadingAbout(true);
+    else if (target === "philosophy-bg") setUploadingPhilosophyBg(true);
     else if (target === "stats-bg") setUploadingStatsBg(true);
     else if (target === "philosophy-slide") setUploadingSlide(true);
     else if (target === "review-left") setUploadingReviewLeft(true);
@@ -177,6 +180,11 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                 ...prev,
                 about: { ...prev.about, photoUrl: uploadedUrl },
               }));
+            } else if (target === "philosophy-bg") {
+              setContent((prev) => ({
+                ...prev,
+                about: { ...prev.about, philosophyBgUrl: uploadedUrl },
+              }));
             } else if (target === "stats-bg") {
               setContent((prev) => ({
                 ...prev,
@@ -210,6 +218,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
           else if (target === "portfolio-thumbnail") setUploadingThumbnail(false);
           else if (target === "hero-video") setUploadingHero(false);
           else if (target === "about-photo") setUploadingAbout(false);
+          else if (target === "philosophy-bg") setUploadingPhilosophyBg(false);
           else if (target === "stats-bg") setUploadingStatsBg(false);
           else if (target === "philosophy-slide") setUploadingSlide(false);
           else if (target === "review-left") setUploadingReviewLeft(false);
@@ -222,6 +231,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
         else if (target === "portfolio-thumbnail") setUploadingThumbnail(false);
         else if (target === "hero-video") setUploadingHero(false);
         else if (target === "about-photo") setUploadingAbout(false);
+        else if (target === "philosophy-bg") setUploadingPhilosophyBg(false);
         else if (target === "stats-bg") setUploadingStatsBg(false);
         else if (target === "philosophy-slide") setUploadingSlide(false);
         else if (target === "review-left") setUploadingReviewLeft(false);
@@ -234,6 +244,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       else if (target === "portfolio-thumbnail") setUploadingThumbnail(false);
       else if (target === "hero-video") setUploadingHero(false);
       else if (target === "about-photo") setUploadingAbout(false);
+      else if (target === "philosophy-bg") setUploadingPhilosophyBg(false);
       else if (target === "stats-bg") setUploadingStatsBg(false);
       else if (target === "philosophy-slide") setUploadingSlide(false);
       else if (target === "review-left") setUploadingReviewLeft(false);
@@ -258,58 +269,43 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       if (res.ok) {
         const data = await res.json();
         setInquiries(data);
-        try {
-          localStorage.setItem("studio_inquiries", JSON.stringify(data));
-        } catch (storageErr) {
-          console.warn("Failed to write inquiries to localStorage:", storageErr);
-        }
+        await saveLocalInquiries(data);
       } else {
-        loadInquiriesFallback();
+        await loadInquiriesFallback();
       }
     } catch (err) {
       console.warn("Error fetching inquiries from server. Falling back to local storage:", err);
-      loadInquiriesFallback();
+      await loadInquiriesFallback();
     } finally {
       setLoadingInquiries(false);
     }
   };
 
-  const loadInquiriesFallback = () => {
+  const loadInquiriesFallback = async () => {
     try {
-      const saved = localStorage.getItem("studio_inquiries");
+      const saved = await getLocalInquiries();
       if (saved) {
-        try {
-          setInquiries(JSON.parse(saved));
-        } catch (e) {
-          console.error("Failed to parse saved inquiries:", e);
-        }
+        setInquiries(saved);
       }
     } catch (storageErr) {
-      console.warn("Failed to read inquiries from localStorage:", storageErr);
+      console.warn("Failed to read inquiries from storage:", storageErr);
     }
   };
 
   const handleMarkAsRead = async (id: string) => {
     // Optimistically update locally first
     try {
-      const saved = localStorage.getItem("studio_inquiries");
+      const saved = await getLocalInquiries();
       if (saved) {
-        try {
-          const inqs = JSON.parse(saved);
-          const index = inqs.findIndex((inq: any) => inq.id === id);
-          if (index !== -1) {
-            inqs[index].status = "read";
-            try {
-              localStorage.setItem("studio_inquiries", JSON.stringify(inqs));
-            } catch (storageErr) {
-              console.warn("Failed to write inquiries status update to localStorage:", storageErr);
-            }
-            setInquiries(inqs);
-          }
-        } catch (e) {}
+        const index = saved.findIndex((inq: any) => inq.id === id);
+        if (index !== -1) {
+          saved[index].status = "read";
+          await saveLocalInquiries(saved);
+          setInquiries(saved);
+        }
       }
     } catch (storageErr) {
-      console.warn("Failed to access inquiries in localStorage:", storageErr);
+      console.warn("Failed to access inquiries in storage:", storageErr);
     }
 
     try {
@@ -319,7 +315,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
         body: JSON.stringify({ status: "read" }),
       });
       if (res.ok) {
-        fetchInquiries();
+        await fetchInquiries();
       }
     } catch (err) {
       console.warn("Error updating inquiry status on server:", err);
@@ -702,7 +698,6 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
               </div>
             </div>
 
-            {/* Row 3: About Story details */}
             <div className="bg-white border border-zinc-200 p-6 rounded-lg shadow-sm">
               <h3 className="font-serif text-xl text-luxury-black mb-6 border-b border-zinc-200 pb-3">3. About Section & Storytelling</h3>
               <div className="space-y-4">
@@ -743,14 +738,44 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                     </div>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-zinc-500 text-[10px] uppercase tracking-wider mb-2 font-semibold">Story Description Introduction</label>
-                  <textarea
-                    value={content.about.storyDescription}
-                    onChange={(e) => handleAboutChange("storyDescription", e.target.value)}
-                    rows={2}
-                    className="w-full bg-white border border-zinc-200 rounded px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold"
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-zinc-500 text-[10px] uppercase tracking-wider mb-2 font-semibold">Core Philosophy Background Image URL</label>
+                    <div className="flex items-center">
+                      <input
+                        type="text"
+                        value={content.about.philosophyBgUrl || ""}
+                        onChange={(e) => handleAboutChange("philosophyBgUrl", e.target.value)}
+                        placeholder="Paste image URL here"
+                        className="w-full bg-white border border-zinc-200 rounded-l px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold font-mono min-w-0"
+                      />
+                      <label htmlFor="philosophy-bg-upload" className="bg-zinc-100 hover:bg-zinc-200 border-y border-r border-zinc-200 rounded-r px-4 py-2 text-xs text-zinc-700 cursor-pointer flex items-center space-x-1.5 transition-all self-stretch whitespace-nowrap font-medium">
+                        {uploadingPhilosophyBg ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-gold" />
+                        ) : (
+                          <Upload className="w-4 h-4 text-zinc-500" />
+                        )}
+                        <span className="text-[10px] uppercase tracking-wider">{uploadingPhilosophyBg ? "Uploading..." : "Upload Background"}</span>
+                      </label>
+                      <input
+                        id="philosophy-bg-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, "philosophy-bg")}
+                        className="sr-only"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-zinc-500 text-[10px] uppercase tracking-wider mb-2 font-semibold">Story Description Introduction</label>
+                    <textarea
+                      value={content.about.storyDescription}
+                      onChange={(e) => handleAboutChange("storyDescription", e.target.value)}
+                      rows={2}
+                      className="w-full bg-white border border-zinc-200 rounded px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold"
+                    />
+                  </div>
                 </div>
 
                 {/* Manage Philosophy Sliding Catalog */}

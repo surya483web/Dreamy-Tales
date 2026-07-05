@@ -25,6 +25,7 @@ export const defaultContent: StudioContent = {
       "Our Promise: To treat every frame as an archival piece of art. Handcrafted album layouts, meticulously color-graded cinematic films, and memories that retain their warmth for generations.",
     ],
     photoUrl: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200",
+    philosophyBgUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1600",
     philosophySlides: [
       {
         id: "p-slide-1",

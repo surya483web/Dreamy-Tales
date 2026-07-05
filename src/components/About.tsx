@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { AboutSection, StudioDetails } from "../types";
 
 interface AboutProps {
-  about: AboutSection;
-  details: StudioDetails;
+  about?: AboutSection;
+  details?: StudioDetails;
 }
 
 export default function About({ about, details }: AboutProps) {
@@ -16,6 +16,7 @@ export default function About({ about, details }: AboutProps) {
   const [currentDragOffset, setCurrentDragOffset] = useState(0);
   const hasDragged = useRef(false);
   const isAnimatingRef = useRef(false);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -27,15 +28,24 @@ export default function About({ about, details }: AboutProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const slides = about.philosophySlides && about.philosophySlides.length > 0 
-    ? about.philosophySlides 
+  const safePhilosophySlides = about?.philosophySlides;
+
+  const slides = safePhilosophySlides && safePhilosophySlides.length > 0 
+    ? safePhilosophySlides 
     : [
         {
           id: "default-1",
-          imageUrl: about.photoUrl || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200",
+          imageUrl: about?.photoUrl || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200",
           title: "SIGNATURE WORK"
         }
       ];
+
+  // Adjust current slide index if slides array shrinks or updates
+  useEffect(() => {
+    if (currentIndex >= slides.length) {
+      setCurrentIndex(0);
+    }
+  }, [slides, currentIndex]);
 
   // Preload all images to avoid blank frames or flickering
   useEffect(() => {
@@ -65,14 +75,55 @@ export default function About({ about, details }: AboutProps) {
     }, 600);
   };
 
-  // Autoplay effect to naturally swipe slides
+  const nextSlideRef = useRef(nextSlide);
+  const prevSlideRef = useRef(prevSlide);
+
+  useEffect(() => {
+    nextSlideRef.current = nextSlide;
+    prevSlideRef.current = prevSlide;
+  });
+
+  // Autoplay effect to naturally swipe slides with stable ref calling
   useEffect(() => {
     if (isDragging || slides.length <= 1) return;
     const interval = setInterval(() => {
-      nextSlide();
-    }, 5500); // Transitions beautifully every 5.5 seconds
+      nextSlideRef.current();
+    }, 2000); // Transitions beautifully every 2 seconds
     return () => clearInterval(interval);
-  }, [currentIndex, isDragging, slides.length]);
+  }, [isDragging, slides.length]);
+
+  // Support trackpad/mouse-wheel horizontal and vertical scrolling gestures
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const threshold = 15;
+      // If we scroll horizontally or vertically on the track, slide images
+      if (Math.abs(e.deltaX) > threshold) {
+        e.preventDefault();
+        if (isAnimatingRef.current) return;
+        if (e.deltaX > 0) {
+          nextSlideRef.current();
+        } else {
+          prevSlideRef.current();
+        }
+      } else if (Math.abs(e.deltaY) > threshold) {
+        e.preventDefault();
+        if (isAnimatingRef.current) return;
+        if (e.deltaY > 0) {
+          nextSlideRef.current();
+        } else {
+          prevSlideRef.current();
+        }
+      }
+    };
+
+    track.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      track.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
 
   // Unified drag/touch handlers
   const handleDragStart = (clientX: number) => {
@@ -136,12 +187,8 @@ export default function About({ about, details }: AboutProps) {
     }
   };
 
-  // Dynamic sizing matching screen size perfectly centered
-  const slideWidth = isMobile ? Math.min(windowWidth - 48, 330) : 720;
-  const gap = isMobile ? 16 : 36;
-
-  // Calculate standard negative translation to perfectly center current active index on viewport with dragging offset
-  const translateX = `calc(50vw - ${slideWidth / 2}px - ${currentIndex * (slideWidth + gap)}px + ${currentDragOffset}px)`;
+  // Calculate standard translation to show exactly the single active slide with dragging offset
+  const translateX = `calc(-${currentIndex * 100}% + ${currentDragOffset}px)`;
 
   return (
     <section id="story" className="relative py-20 md:py-28 bg-white overflow-hidden border-t border-zinc-200/40">
@@ -160,118 +207,41 @@ export default function About({ about, details }: AboutProps) {
       </div>
 
       {/* Outer wrapper to position mobile control overlays */}
-      <div className="relative w-full overflow-hidden">
-        
-        {/* ULTRA-LUXURY SLIDING TRACK (Peeking Carousel) */}
-        <div 
-          className="w-full relative overflow-visible py-4 select-none cursor-grab active:cursor-grabbing"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-          style={{ touchAction: "pan-y" }}
-        >
+      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10 w-full mb-10">
+        <div className="relative w-full overflow-hidden rounded-2xl shadow-2xl border border-zinc-200/50 bg-zinc-50 aspect-[4/5] sm:aspect-[16/10] md:aspect-[16/9] lg:h-[720px]">
+          
+          {/* ULTRA-LUXURY FADE CONTAINER */}
           <div 
-            className={`flex ${isDragging ? "transition-none" : "transition-transform duration-[600ms] ease-in-out"}`}
-            style={{ transform: translateX }}
+            ref={trackRef}
+            className="w-full h-full relative select-none"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
           >
-            {slides.map((slide, idx) => {
-              const isActive = idx === currentIndex;
-              return (
-                <div
-                  key={slide.id || idx}
-                  onClick={(e) => {
-                    if (hasDragged.current) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      return;
-                    }
-                    if (isAnimatingRef.current) return;
-                    if (!isActive) {
-                      isAnimatingRef.current = true;
-                      setCurrentIndex(idx);
-                      setTimeout(() => {
-                        isAnimatingRef.current = false;
-                      }, 600);
-                    } else {
-                      nextSlide();
-                    }
-                  }}
-                  className="shrink-0 transition-all duration-[600ms] ease-in-out relative overflow-hidden rounded group/slide cursor-pointer"
-                  style={{
-                    width: `${slideWidth}px`,
-                    marginRight: `${gap}px`,
-                  }}
-                >
-                  {/* Image Frame */}
-                  <div 
-                    className={`relative w-full aspect-[3/2] overflow-hidden transition-all duration-[600ms] ease-in-out ${
-                      isActive 
-                        ? "scale-100 opacity-100 shadow-2xl" 
-                        : "scale-[0.93] opacity-40 hover:opacity-60 blur-[0.5px] grayscale-[20%]"
-                    }`}
-                  >
-                    <img
-                      src={slide.imageUrl}
-                      alt={slide.title}
-                      referrerPolicy="no-referrer"
-                      draggable={false}
-                      className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover/slide:scale-105 pointer-events-none"
-                    />
-                    
-                    {/* Subtle dark radial overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
-
-                    {/* Elegant interactive swipe prompt visible on active slide hover */}
-                    {isActive && (
-                      <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/slide:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
-                        <div className="bg-white/95 backdrop-blur-md text-luxury-black font-sans text-[10px] tracking-[0.2em] uppercase px-4 py-2 rounded shadow-xl flex items-center gap-2 transform translate-y-2 group-hover/slide:translate-y-0 transition-transform duration-300">
-                          <span>TAP OR SWIPE TO NEXT</span>
-                          <span className="font-light text-xs">&rarr;</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={currentIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="absolute inset-0 w-full h-full overflow-hidden group/slide cursor-pointer"
+                onClick={nextSlide}
+              >
+                <img
+                  src={slides[currentIndex]?.imageUrl}
+                  alt={slides[currentIndex]?.title}
+                  referrerPolicy="no-referrer"
+                  draggable={false}
+                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out hover:scale-105 pointer-events-none"
+                />
+              </motion.div>
+            </AnimatePresence>
           </div>
+
         </div>
-
-        {/* Floating Mobile Touch Chevrons placed on top with z-50 */}
-        {isMobile && (
-          <>
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                prevSlide();
-              }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-11 h-11 rounded-full bg-white/95 backdrop-blur-md shadow-2xl border border-zinc-200/50 flex items-center justify-center text-luxury-black font-semibold active:scale-95 transition-transform cursor-pointer"
-              aria-label="Previous Slide"
-              style={{ touchAction: "manipulation" }}
-            >
-              <span className="text-sm font-sans">&larr;</span>
-            </button>
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                nextSlide();
-              }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-11 h-11 rounded-full bg-white/95 backdrop-blur-md shadow-2xl border border-zinc-200/50 flex items-center justify-center text-luxury-black font-semibold active:scale-95 transition-transform cursor-pointer"
-              aria-label="Next Slide"
-              style={{ touchAction: "manipulation" }}
-            >
-              <span className="text-sm font-sans">&rarr;</span>
-            </button>
-          </>
-        )}
-
-      </div> {/* End outer wrapper */}
+      </div>
 
       {/* Elegant Bullet Indicators matching image swiping requests */}
       <div className="flex justify-center items-center space-x-2.5 mt-4 mb-2 select-none">
@@ -330,41 +300,54 @@ export default function About({ about, details }: AboutProps) {
 
         </div>
 
-        {/* Detailed Description Grid */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-16 items-start">
-          
-          <div className="md:col-span-4">
-            <span className="text-[10px] md:text-xs uppercase tracking-[0.4em] text-gold-dark font-semibold block mb-3">
-              The Glimpse
-            </span>
-            <p className="text-zinc-500 font-sans text-xs sm:text-sm font-light leading-relaxed">
-              {about.storyDescription}
-            </p>
+        {/* Detailed Description Grid with Philosophy Background Image */}
+        <div className="relative mt-16 rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl p-8 sm:p-12 md:p-16">
+          {/* Background Image with elegant dark overlay */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src={about?.philosophyBgUrl || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1600"}
+              alt="Core Philosophy Background"
+              className="w-full h-full object-cover opacity-65 transition-transform duration-[4000ms] ease-out hover:scale-105"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-luxury-black/95 via-luxury-black/85 to-luxury-black/70" />
           </div>
 
-          <div className="md:col-span-8">
-            <span className="text-[10px] md:text-xs uppercase tracking-[0.4em] text-gold-dark font-semibold block mb-3">
-              Core Philosophies
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-zinc-600 font-sans">
-              {about.storyParagraphs && about.storyParagraphs.map((para, i) => {
-                const parts = para.split(": ");
-                const heading = parts[0];
-                const text = parts[1] || "";
-                return (
-                  <div key={i} className="space-y-2 border-l border-zinc-200 pl-4">
-                    <h4 className="font-mono text-[9px] uppercase tracking-widest text-luxury-black font-semibold">
-                      {heading}
-                    </h4>
-                    <p className="leading-relaxed text-zinc-500 font-light">
-                      {text}
-                    </p>
-                  </div>
-                );
-              })}
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-16 items-start">
+            
+            <div className="md:col-span-4">
+              <span className="text-[10px] md:text-xs uppercase tracking-[0.4em] text-gold font-bold block mb-3">
+                The Glimpse
+              </span>
+              <p className="text-zinc-200 font-sans text-xs sm:text-sm leading-relaxed font-light">
+                {about?.storyDescription}
+              </p>
             </div>
-          </div>
 
+            <div className="md:col-span-8">
+              <span className="text-[10px] md:text-xs uppercase tracking-[0.4em] text-gold font-bold block mb-3">
+                Core Philosophies
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-zinc-300 font-sans">
+                {about?.storyParagraphs && about.storyParagraphs.map((para, i) => {
+                  const parts = para.split(": ");
+                  const heading = parts[0];
+                  const text = parts[1] || "";
+                  return (
+                    <div key={i} className="space-y-2 border-l-2 border-gold/50 pl-4">
+                      <h4 className="font-mono text-[9.5px] uppercase tracking-widest text-white font-semibold">
+                        {heading}
+                      </h4>
+                      <p className="leading-relaxed text-zinc-300 font-light">
+                        {text}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
 

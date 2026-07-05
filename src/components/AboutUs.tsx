@@ -4,11 +4,19 @@ import { Instagram, Star, Heart } from "lucide-react";
 import { AboutSection, StudioDetails } from "../types";
 
 interface AboutUsProps {
-  about: AboutSection;
-  details: StudioDetails;
+  about?: AboutSection;
+  details?: StudioDetails;
 }
 
 export default function AboutUs({ about, details }: AboutUsProps) {
+  const photoUrl = about?.photoUrl || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200";
+  const name = details?.name || "OMBRES";
+  const msme = details?.msme || "MSME";
+  const experience = details?.experience || "5+ Years";
+  const storyHeadline = about?.storyHeadline || "";
+  const storyDescription = about?.storyDescription || "";
+  const owner = details?.owner || "Gyanu Verma";
+
   // Stagger animation container
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -61,8 +69,8 @@ export default function AboutUs({ about, details }: AboutUsProps) {
               className="relative w-full aspect-[2/3] max-h-[720px] overflow-hidden rounded bg-zinc-100 shadow-2xl z-10 group"
             >
               <img
-                src={about.photoUrl || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200"}
-                alt={details.name}
+                src={photoUrl}
+                alt={name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover transition-transform duration-[2.5s] ease-out group-hover:scale-105 filter grayscale hover:grayscale-0"
               />
@@ -80,10 +88,10 @@ export default function AboutUs({ about, details }: AboutUsProps) {
               className="absolute -bottom-6 -left-4 sm:-left-8 bg-[#0D0D0D] border border-zinc-800 text-white py-4 px-6 rounded shadow-2xl flex flex-col justify-center items-center z-20 select-none"
             >
               <span className="font-mono text-[9px] tracking-[0.3em] text-gold uppercase font-semibold">
-                {details.msme || "ESTABLISHED"}
+                {msme}
               </span>
               <span className="font-serif text-lg md:text-xl font-light tracking-widest mt-1 text-white">
-                {details.experience || "5+ Years"}
+                {experience}
               </span>
             </motion.div>
           </div>
@@ -118,11 +126,11 @@ export default function AboutUs({ about, details }: AboutUsProps) {
             {/* Custom Narrative Body */}
             <motion.div variants={itemVariants} className="space-y-6">
               <p className="text-luxury-black font-sans text-base sm:text-lg md:text-xl font-light tracking-wide leading-relaxed">
-                {about.storyHeadline} — {details.name} is a high-fashion, boutique photography &amp; film studio crafted for couples who cherish absolute visual poetry.
+                {storyHeadline} — {name} is a high-fashion, boutique photography &amp; film studio crafted for couples who cherish absolute visual poetry.
               </p>
               
               <p className="text-zinc-500 font-sans text-sm sm:text-base font-light leading-relaxed whitespace-pre-line">
-                {about.storyDescription} Under the creative direction of Gyanu Verma and backed by {details.experience} of excellence, we specialize in luxury wedding storytelling that feels deeply intimate, authentic, and cinematic. We bypass forced poses to preserve the raw, unscripted chemistry that makes your tale unique.
+                {storyDescription} Under the creative direction of Gyanu Verma and backed by {experience} of excellence, we specialize in luxury wedding storytelling that feels deeply intimate, authentic, and cinematic. We bypass forced poses to preserve the raw, unscripted chemistry that makes your tale unique.
               </p>
             </motion.div>
 
@@ -133,7 +141,7 @@ export default function AboutUs({ about, details }: AboutUsProps) {
             >
               <div>
                 <span className="block font-serif text-lg tracking-wide text-[#1A1A1A] font-medium uppercase">
-                  {details.owner}
+                  {owner}
                 </span>
                 <span className="block text-[9px] font-mono uppercase tracking-[0.3em] text-zinc-400 font-bold mt-0.5">
                   Founder &amp; Lead Curator

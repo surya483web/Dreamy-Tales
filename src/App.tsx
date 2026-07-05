@@ -11,12 +11,14 @@ import Contact from "./components/Contact";
 import AdminPanel from "./components/AdminPanel";
 import { Loader2 } from "lucide-react";
 import { defaultContent } from "./defaultContent";
+import { getLocalContent, saveLocalContent } from "./lib/storage";
 
 export default function App() {
   const [content, setContent] = useState<StudioContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
 
   // Load Content with server API and local fallback strategy for Netlify static hosting
   const loadContent = async () => {
@@ -28,45 +30,33 @@ export default function App() {
       if (response.ok) {
         const data = await response.json();
         // Sync with local storage safely
-        try {
-          localStorage.setItem("studio_content", JSON.stringify(data));
-        } catch (storageErr) {
-          console.warn("Failed to write content to localStorage (likely quota exceeded):", storageErr);
-        }
+        await saveLocalContent(data);
         setContent(data);
       } else {
         // Fallback to client local storage or default configuration
-        loadLocalFallback();
+        await loadLocalFallback();
       }
     } catch (err: any) {
       console.warn("Unable to load config from server. Falling back to local storage (ideal for static hosts like Netlify):", err);
-      loadLocalFallback();
+      await loadLocalFallback();
     } finally {
       setLoading(false);
     }
   };
 
-  const loadLocalFallback = () => {
+  const loadLocalFallback = async () => {
     try {
-      const saved = localStorage.getItem("studio_content");
+      const saved = await getLocalContent();
       if (saved) {
-        try {
-          setContent(JSON.parse(saved));
-          return;
-        } catch (e) {
-          console.error("Failed to parse saved local content, resetting:", e);
-        }
+        setContent(saved);
+        return;
       }
     } catch (storageErr) {
-      console.warn("Failed to read from localStorage:", storageErr);
+      console.warn("Failed to read from local storage:", storageErr);
     }
     // Set absolute defaults
     setContent(defaultContent);
-    try {
-      localStorage.setItem("studio_content", JSON.stringify(defaultContent));
-    } catch (storageErr) {
-      console.warn("Failed to write default content to localStorage:", storageErr);
-    }
+    await saveLocalContent(defaultContent);
   };
 
   useEffect(() => {
@@ -79,11 +69,7 @@ export default function App() {
       // Optimistically update state first
       setContent(newContent);
       
-      try {
-        localStorage.setItem("studio_content", JSON.stringify(newContent));
-      } catch (storageErr) {
-        console.warn("Failed to write saved content to localStorage (quota exceeded):", storageErr);
-      }
+      await saveLocalContent(newContent);
 
       const response = await fetch("/api/content", {
         method: "POST",
@@ -97,11 +83,7 @@ export default function App() {
         const resData = await response.json();
         if (resData.success) {
           setContent(resData.content);
-          try {
-            localStorage.setItem("studio_content", JSON.stringify(resData.content));
-          } catch (storageErr) {
-            console.warn("Failed to sync updated content to localStorage:", storageErr);
-          }
+          await saveLocalContent(resData.content);
         }
       }
       return true; // Return true as content was successfully updated locally & visually
@@ -143,7 +125,7 @@ export default function App() {
       <Header onAdminClick={() => setIsAdminOpen(!isAdminOpen)} isAdminMode={isAdminOpen} />
 
       {/* 2. Full-Screen Cinematic Video Hero */}
-      <Hero data={content.hero} />
+      <Hero data={content.hero} onReserveClick={() => setIsReserveModalOpen(true)} isAdminMode={isAdminOpen} />
 
       {/* 3. Our Philosophy Slide Deck Section */}
       <About about={content.about} details={content.details} />
@@ -161,7 +143,7 @@ export default function App() {
       <ClientPraise reviews={content.reviews} />
 
       {/* 8. Active Booking Form and Studio Coordinates */}
-      <Contact details={content.details} />
+      <Contact details={content.details} isModalOpen={isReserveModalOpen} setIsModalOpen={setIsReserveModalOpen} />
 
       {/* 8. Full-screen Admin Panel Gate Overlay */}
       {isAdminOpen && (

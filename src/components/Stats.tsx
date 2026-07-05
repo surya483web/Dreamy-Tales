@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "motion/react";
 
 interface StatsProps {
-  stats: {
-    weddings: number;
-    couples: number;
-    events: number;
+  stats?: {
+    weddings?: number;
+    couples?: number;
+    events?: number;
     backgroundUrl?: string;
   };
 }
@@ -57,10 +57,14 @@ function Counter({ value }: CounterProps) {
 export default function Stats({ stats }: StatsProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
 
+  const weddingsVal = stats?.weddings ?? 100;
+  const couplesVal = stats?.couples ?? 150;
+  const eventsVal = stats?.events ?? 200;
+
   const milestones = [
-    { value: stats.weddings, label: "WEDDINGS DOCUMENTED", sub: "Archiving grand rituals" },
-    { value: stats.couples, label: "SMILING COUPLES", sub: "Boundless love stories" },
-    { value: stats.events, label: "EVENTS CELEBRATED", sub: "Candid smiles captured" },
+    { value: weddingsVal, label: "WEDDINGS DOCUMENTED", sub: "Archiving grand rituals" },
+    { value: couplesVal, label: "SMILING COUPLES", sub: "Boundless love stories" },
+    { value: eventsVal, label: "EVENTS CELEBRATED", sub: "Candid smiles captured" },
   ];
 
   return (

@@ -4,16 +4,17 @@ import { PortfolioItem } from "../types";
 import { Play, X, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface PortfolioProps {
-  items: PortfolioItem[];
+  items?: PortfolioItem[];
 }
 
-export default function Portfolio({ items }: PortfolioProps) {
+export default function Portfolio({ items = [] }: PortfolioProps) {
   const [activeFilter, setActiveFilter] = useState<string>("All");
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [isLightboxMuted, setIsLightboxMuted] = useState(false);
   const lightboxVideoRef = useRef<HTMLVideoElement>(null);
 
-  const currentItem = selectedIdx !== null ? items[selectedIdx] : null;
+  const safeItems = items || [];
+  const currentItem = selectedIdx !== null ? safeItems[selectedIdx] : null;
 
   useEffect(() => {
     if (lightboxVideoRef.current) {
@@ -24,7 +25,7 @@ export default function Portfolio({ items }: PortfolioProps) {
   const categories = ["All", "Films", "Photography", "Pre-Wedding", "Candid"];
 
   // Filter items
-  const filteredItems = items.filter((item) => {
+  const filteredItems = safeItems.filter((item) => {
     if (!item) return false;
     if (activeFilter === "All") return true;
     const itemCategory = item.category || "";
@@ -35,7 +36,7 @@ export default function Portfolio({ items }: PortfolioProps) {
   });
 
   const openLightbox = (item: PortfolioItem) => {
-    const idx = items.findIndex((i) => i.id === item.id);
+    const idx = safeItems.findIndex((i) => i.id === item.id);
     if (idx !== -1) {
       setSelectedIdx(idx);
     }
@@ -46,10 +47,10 @@ export default function Portfolio({ items }: PortfolioProps) {
   };
 
   const navigateLightbox = (direction: "next" | "prev") => {
-    if (selectedIdx === null) return;
+    if (selectedIdx === null || safeItems.length === 0) return;
     let nextIdx = direction === "next" ? selectedIdx + 1 : selectedIdx - 1;
-    if (nextIdx < 0) nextIdx = items.length - 1;
-    if (nextIdx >= items.length) nextIdx = 0;
+    if (nextIdx < 0) nextIdx = safeItems.length - 1;
+    if (nextIdx >= safeItems.length) nextIdx = 0;
     setSelectedIdx(nextIdx);
   };
 
@@ -215,7 +216,7 @@ export default function Portfolio({ items }: PortfolioProps) {
 
             {/* Bottom Carousel Indicator */}
             <div className="absolute bottom-6 font-mono text-[10px] tracking-widest text-white/40">
-              {selectedIdx !== null ? selectedIdx + 1 : 0} / {items.length}
+              {selectedIdx !== null ? selectedIdx + 1 : 0} / {safeItems.length}
             </div>
           </motion.div>
         )}

@@ -10,9 +10,18 @@ interface ClientPraiseProps {
 export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // Automatically reset activeIndex to a safe range if reviews list updates or shrinks
+  React.useEffect(() => {
+    if (reviews && reviews.length > 0 && activeIndex >= reviews.length) {
+      setActiveIndex(0);
+    }
+  }, [reviews, activeIndex]);
+
   if (!reviews || reviews.length === 0) return null;
 
-  const currentReview = reviews[activeIndex];
+  // Use optional fallback to prevent undefined references if activeIndex is temporarily out of range
+  const currentReview = reviews[activeIndex] || reviews[0];
+  if (!currentReview) return null;
 
   const handleNext = () => {
     setActiveIndex((prev) => (prev === reviews.length - 1 ? 0 : prev + 1));

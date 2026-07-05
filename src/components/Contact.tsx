@@ -19,14 +19,25 @@ import {
 } from "lucide-react";
 import { StudioDetails } from "../types";
 import { motion, AnimatePresence } from "motion/react";
+import { getLocalInquiries, saveLocalInquiries } from "../lib/storage";
 
 interface ContactProps {
-  details: StudioDetails;
+  details?: StudioDetails;
+  isModalOpen?: boolean;
+  setIsModalOpen?: (open: boolean) => void;
 }
 
-export default function Contact({ details }: ContactProps) {
-  // Modal state for Reservation Request Form
-  const [isModalOpen, setIsModalOpen] = useState(false);
+export default function Contact({ details, isModalOpen: controlledModalOpen, setIsModalOpen: setControlledModalOpen }: ContactProps) {
+  // Modal state for Reservation Request Form with optional control from parent
+  const [localModalOpen, setLocalModalOpen] = useState(false);
+  const isModalOpen = controlledModalOpen !== undefined ? controlledModalOpen : localModalOpen;
+  const setIsModalOpen = setControlledModalOpen !== undefined ? setControlledModalOpen : setLocalModalOpen;
+
+  const locationVal = details?.location || "Delhi / NCR";
+  const ownerVal = details?.owner || "Gyanu Verma";
+  const emailVal = details?.email || "dreamytalesstudio@gmail.com";
+  const instagramVal = details?.instagram || "@dreamytalesstudio";
+  const phoneVal = details?.phone || "+91 9717013233";
 
   const [formData, setFormData] = useState({
     clientName: "",
@@ -92,14 +103,8 @@ export default function Contact({ details }: ContactProps) {
       }
 
       if (!submissionSuccess) {
-        // Fallback to storing inquiry locally in localStorage so that it is visible in the Admin Panel
-        const savedInquiries = localStorage.getItem("studio_inquiries");
-        let inquiries = [];
-        if (savedInquiries) {
-          try {
-            inquiries = JSON.parse(savedInquiries);
-          } catch (e) {}
-        }
+        // Fallback to storing inquiry locally in IndexedDB so that it is visible in the Admin Panel
+        const inquiries = (await getLocalInquiries()) || [];
         
         const newInquiry = {
           id: `inq-${Date.now()}`,
@@ -109,7 +114,7 @@ export default function Contact({ details }: ContactProps) {
         };
         
         inquiries.unshift(newInquiry);
-        localStorage.setItem("studio_inquiries", JSON.stringify(inquiries));
+        await saveLocalInquiries(inquiries);
         msg = "Reservation request saved successfully to your browser storage!";
         submissionSuccess = true;
       }
@@ -134,102 +139,75 @@ export default function Contact({ details }: ContactProps) {
   };
 
   return (
-    <section id="contact" className="relative py-28 md:py-36 bg-[#0B0A08] text-white overflow-hidden border-t border-zinc-900">
+    <section id="contact" className="relative py-28 md:py-36 bg-white text-luxury-black overflow-hidden border-t border-[#EAE3DB]">
       
       {/* Background Cinematic Lighting Details */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-amber-500/10 via-transparent to-transparent blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-zinc-900/50 via-transparent to-transparent blur-[100px] pointer-events-none" />
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-[#C5A880]/15 via-transparent to-transparent blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-[#D9C4A9]/10 via-transparent to-transparent blur-[100px] pointer-events-none" />
       
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         
-        {/* Header Block exactly like the uploaded image */}
+        {/* Header Block with high premium contrast */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-16 md:mb-24">
           <div className="lg:col-span-7 space-y-6">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] md:text-xs uppercase tracking-[0.4em] text-[#C5A880] font-semibold">
+              <span className="font-mono text-[10px] md:text-xs uppercase tracking-[0.4em] text-[#8E724F] font-semibold">
                 RESERVE THE MEMORY
               </span>
-              <div className="w-1.5 h-1.5 bg-[#C5A880] rounded-full shadow-[0_0_8px_#C5A880]" />
+              <div className="w-1.5 h-1.5 bg-[#8E724F] rounded-full" />
             </div>
 
-            <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl text-white tracking-wide font-light leading-tight">
+            <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl text-luxury-black tracking-wide font-light leading-tight">
               Let's Co-Create Your <br />
-              <span className="text-[#C5A880] font-medium bg-gradient-to-r from-amber-200 via-[#C5A880] to-amber-600 bg-clip-text text-transparent">
+              <span className="text-[#8E724F] font-medium bg-gradient-to-r from-[#A3865E] via-[#8E724F] to-[#715A3D] bg-clip-text text-transparent">
                 Cinematic Legacy
               </span>
             </h2>
 
-            <p className="text-zinc-400 font-sans text-xs sm:text-sm font-light leading-relaxed max-w-xl">
+            <p className="text-zinc-600 font-sans text-xs sm:text-sm font-light leading-relaxed max-w-xl">
               Due to our high-fidelity custom narrative style, we document only a select group of weddings and high-profile events annually. Secure your reservation console to verify availability.
             </p>
-
-            {/* Three outline badges */}
-            <div className="flex flex-wrap gap-4 pt-4">
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded border border-zinc-800 bg-zinc-900/30">
-                <ShieldCheck className="w-4 h-4 text-[#C5A880]" />
-                <div>
-                  <span className="block font-mono text-[9px] uppercase tracking-widest text-[#C5A880] font-bold">EXCLUSIVE BOOKINGS</span>
-                  <span className="block text-[10px] text-zinc-500 font-light mt-0.5">Limited projects per year</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded border border-zinc-800 bg-zinc-900/30">
-                <Sparkles className="w-4 h-4 text-[#C5A880]" />
-                <div>
-                  <span className="block font-mono text-[9px] uppercase tracking-widest text-[#C5A880] font-bold">CINEMATIC STORYTELLING</span>
-                  <span className="block text-[10px] text-zinc-500 font-light mt-0.5">Crafted with emotion</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded border border-zinc-800 bg-zinc-900/30">
-                <Lock className="w-4 h-4 text-[#C5A880]" />
-                <div>
-                  <span className="block font-mono text-[9px] uppercase tracking-widest text-[#C5A880] font-bold">PRIORITY AVAILABILITY</span>
-                  <span className="block text-[10px] text-zinc-500 font-light mt-0.5">Secure your date early</span>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Right Column: Stunning cinema camera visual exactly matching the mockup */}
+          {/* Right Column: Stunning cinema camera visual with premium light borders */}
           <div className="lg:col-span-5 relative hidden lg:block">
-            <div className="absolute -inset-2 bg-gradient-to-r from-amber-500/10 to-transparent rounded-lg blur-xl pointer-events-none" />
-            <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950 shadow-2xl group">
+            <div className="absolute -inset-2 bg-gradient-to-r from-[#C5A880]/10 to-transparent rounded-lg blur-xl pointer-events-none" />
+            <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-[#E6DCD3] bg-white shadow-xl group">
               <img
                 src="https://images.unsplash.com/photo-1601506521937-0121a7fc2a6b?q=80&w=1200&auto=format&fit=crop"
                 alt="Cinematic Camera Setup"
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-[3s] ease-out"
+                className="w-full h-full object-cover opacity-95 group-hover:scale-105 transition-transform duration-[3s] ease-out"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-              <div className="absolute bottom-4 left-4 flex items-center space-x-2.5 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded border border-zinc-800">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="font-mono text-[9px] tracking-wider text-zinc-300">LIVE FEED // 4K NARRATIVE RECORDING</span>
+              <div className="absolute inset-0 bg-gradient-to-t from-[#FAF8F5]/60 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute bottom-4 left-4 flex items-center space-x-2.5 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded border border-[#E6DCD3] shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-[#8E724F] animate-pulse" />
+                <span className="font-mono text-[9px] tracking-wider text-[#8E724F] font-semibold">LIVE FEED // 4K NARRATIVE RECORDING</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Stacked Glow Blocks matching the uploaded design */}
+        {/* Stacked Coordinate Blocks - purely White & Light Brown premium design */}
         <div className="space-y-5 max-w-5xl mx-auto mb-16">
           
-          {/* 1. Studio Coordinates (Blue themed) */}
+          {/* 1. Studio Coordinates (Light Brown / Cream) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="group relative overflow-hidden rounded-xl border border-blue-900/30 hover:border-blue-500/30 bg-gradient-to-r from-blue-950/20 via-[#0B0A08] to-[#0B0A08] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500"
+            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
           >
             <div className="flex items-center space-x-5">
-              <div className="relative w-14 h-14 rounded-xl border border-blue-950 bg-blue-950/30 flex items-center justify-center text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)] group-hover:bg-blue-950/50 group-hover:border-blue-500/40 transition-all duration-500 shrink-0">
+              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
                 <MapPin className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping" />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#8E724F] rounded-full" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-blue-400 font-bold">STUDIO COORDINATES</span>
-                <p className="font-serif text-lg sm:text-xl text-white group-hover:text-blue-300 transition-colors mt-0.5 font-light">
-                  {details.location}
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">STUDIO COORDINATES</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                  {locationVal}
                 </p>
                 <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
                   Bespoke studio space
@@ -237,28 +215,28 @@ export default function Contact({ details }: ContactProps) {
               </div>
             </div>
             
-            {/* Blue glowing map vector outline */}
-            <div className="h-10 opacity-20 group-hover:opacity-40 transition-all duration-500 flex items-center pr-4">
-              <Globe className="w-12 h-12 text-blue-400 animate-[spin_40s_linear_infinite]" />
+            {/* Elegant light-brown spinning element */}
+            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
+              <Globe className="w-10 h-10 text-[#8E724F] animate-[spin_50s_linear_infinite]" />
             </div>
           </motion.div>
 
-          {/* 2. Lead Creative Producer (Purple themed) */}
+          {/* 2. Lead Creative Producer (Light Brown / Cream) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="group relative overflow-hidden rounded-xl border border-purple-900/30 hover:border-purple-500/30 bg-gradient-to-r from-purple-950/20 via-[#0B0A08] to-[#0B0A08] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500"
+            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
           >
             <div className="flex items-center space-x-5">
-              <div className="relative w-14 h-14 rounded-xl border border-purple-950 bg-purple-950/30 flex items-center justify-center text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.1)] group-hover:bg-purple-950/50 group-hover:border-purple-500/40 transition-all duration-500 shrink-0">
+              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-purple-400 font-bold">LEAD CREATIVE PRODUCER</span>
-                <p className="font-serif text-lg sm:text-xl text-white group-hover:text-purple-300 transition-colors mt-0.5 font-light">
-                  {details.owner}
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">LEAD CREATIVE PRODUCER</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                  {ownerVal}
                 </p>
                 <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
                   Director of Fine Art
@@ -266,28 +244,27 @@ export default function Contact({ details }: ContactProps) {
               </div>
             </div>
             
-            {/* Director spotlight accent */}
-            <div className="h-10 opacity-20 group-hover:opacity-40 transition-all duration-500 flex items-center pr-4">
-              <Tv className="w-10 h-10 text-purple-400" />
+            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
+              <Tv className="w-9 h-9 text-[#8E724F]" />
             </div>
           </motion.div>
 
-          {/* 3. Electronic Transmissions (Green themed) */}
+          {/* 3. Electronic Transmissions (Light Brown / Cream) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="group relative overflow-hidden rounded-xl border border-emerald-900/30 hover:border-emerald-500/30 bg-gradient-to-r from-emerald-950/20 via-[#0B0A08] to-[#0B0A08] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500"
+            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
           >
-            <a href={`mailto:${details.email}`} className="flex items-center space-x-5 flex-grow">
-              <div className="relative w-14 h-14 rounded-xl border border-emerald-950 bg-emerald-950/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)] group-hover:bg-emerald-950/50 group-hover:border-emerald-500/40 transition-all duration-500 shrink-0">
+            <a href={`mailto:${emailVal}`} className="flex items-center space-x-5 flex-grow">
+              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-emerald-400 font-bold">ELECTRONIC TRANSMISSIONS</span>
-                <p className="font-serif text-lg sm:text-xl text-white group-hover:text-emerald-300 transition-colors mt-0.5 font-light break-all">
-                  {details.email}
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">ELECTRONIC TRANSMISSIONS</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light break-all">
+                  {emailVal}
                 </p>
                 <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
                   Average response: 4 Hours
@@ -295,19 +272,18 @@ export default function Contact({ details }: ContactProps) {
               </div>
             </a>
             
-            {/* floating holographic lines */}
-            <div className="h-10 opacity-20 group-hover:opacity-40 transition-all duration-500 flex items-center pr-4">
-              <Compass className="w-10 h-10 text-emerald-400" />
+            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
+              <Compass className="w-9 h-9 text-[#8E724F]" />
             </div>
           </motion.div>
 
-          {/* 4. Digital Narrative Index (Gold/Orange themed) */}
+          {/* 4. Digital Narrative Index (Light Brown / Cream) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="group relative overflow-hidden rounded-xl border border-amber-900/30 hover:border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-[#0B0A08] to-[#0B0A08] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500"
+            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
           >
             <a 
               href="https://www.instagram.com/dreamytalesstudio?igsh=bTA2NjRnZXdzMWMy" 
@@ -315,13 +291,13 @@ export default function Contact({ details }: ContactProps) {
               rel="noopener noreferrer" 
               className="flex items-center space-x-5 flex-grow"
             >
-              <div className="relative w-14 h-14 rounded-xl border border-amber-950 bg-amber-950/30 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)] group-hover:bg-amber-950/50 group-hover:border-amber-500/40 transition-all duration-500 shrink-0">
+              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
                 <Instagram className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-amber-400 font-bold">DIGITAL NARRATIVE INDEX</span>
-                <p className="font-serif text-lg sm:text-xl text-white group-hover:text-amber-300 transition-colors mt-0.5 font-light">
-                  {details.instagram}
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">DIGITAL NARRATIVE INDEX</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                  {instagramVal}
                 </p>
                 <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
                   Cinematic portfolio & updates
@@ -329,28 +305,27 @@ export default function Contact({ details }: ContactProps) {
               </div>
             </a>
             
-            {/* film strip representation */}
-            <div className="h-10 opacity-20 group-hover:opacity-40 transition-all duration-500 flex items-center pr-4">
-              <Sparkles className="w-10 h-10 text-amber-400" />
+            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
+              <Sparkles className="w-9 h-9 text-[#8E724F]" />
             </div>
           </motion.div>
 
-          {/* 5. Direct Voice Terminal (Red themed) */}
+          {/* 5. Direct Voice Terminal (Light Brown / Cream) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="group relative overflow-hidden rounded-xl border border-red-900/30 hover:border-red-500/30 bg-gradient-to-r from-red-950/20 via-[#0B0A08] to-[#0B0A08] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500"
+            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
           >
-            <a href={`tel:${details.phone}`} className="flex items-center space-x-5 flex-grow">
-              <div className="relative w-14 h-14 rounded-xl border border-red-950 bg-red-950/30 flex items-center justify-center text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)] group-hover:bg-red-950/50 group-hover:border-red-500/40 transition-all duration-500 shrink-0">
+            <a href={`tel:${phoneVal}`} className="flex items-center space-x-5 flex-grow">
+              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
                 <Phone className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-red-400 font-bold">DIRECT VOICE TERMINAL</span>
-                <p className="font-serif text-lg sm:text-xl text-white group-hover:text-red-300 transition-colors mt-0.5 font-light">
-                  {details.phone}
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">DIRECT VOICE TERMINAL</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                  {phoneVal}
                 </p>
                 <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
                   Priority scheduling lines
@@ -358,32 +333,31 @@ export default function Contact({ details }: ContactProps) {
               </div>
             </a>
             
-            {/* red soundwave effect */}
-            <div className="h-10 opacity-20 group-hover:opacity-40 transition-all duration-500 flex items-center pr-4 space-x-0.5">
-              <div className="w-[3px] h-6 bg-red-400 rounded-full animate-[pulse_1s_infinite]" />
-              <div className="w-[3px] h-10 bg-red-400 rounded-full animate-[pulse_1.2s_infinite_0.2s]" />
-              <div className="w-[3px] h-8 bg-red-400 rounded-full animate-[pulse_0.8s_infinite_0.4s]" />
-              <div className="w-[3px] h-5 bg-red-400 rounded-full animate-[pulse_1.4s_infinite_0.1s]" />
-              <div className="w-[3px] h-3 bg-red-400 rounded-full animate-[pulse_0.9s_infinite_0.5s]" />
+            {/* Elegant light-brown signal indicator */}
+            <div className="h-10 opacity-30 group-hover:opacity-60 transition-all duration-500 flex items-center pr-4 space-x-0.5">
+              <div className="w-[3px] h-6 bg-[#8E724F] rounded-full" />
+              <div className="w-[3px] h-9 bg-[#8E724F] rounded-full" />
+              <div className="w-[3px] h-7 bg-[#8E724F] rounded-full" />
+              <div className="w-[3px] h-4 bg-[#8E724F] rounded-full" />
             </div>
           </motion.div>
 
         </div>
 
-        {/* Bottom Banner exactly matching the mockup */}
+        {/* Bottom Banner inside light card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="max-w-5xl mx-auto rounded-xl border border-[#C5A880]/30 bg-[#151310] p-6 flex flex-col md:flex-row justify-between items-center gap-6"
+          className="max-w-5xl mx-auto rounded-2xl border border-[#E6DCD3] bg-white p-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-[0_12px_45px_rgba(142,114,79,0.05)]"
         >
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded bg-[#C5A880]/10 flex items-center justify-center text-[#C5A880] shrink-0 border border-[#C5A880]/20">
+            <div className="w-12 h-12 rounded bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shrink-0 border border-[#E1D4C6]">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[#C5A880] font-serif text-sm font-light">
+              <p className="text-[#8E724F] font-serif text-sm font-semibold">
                 Your story deserves to be told like a masterpiece.
               </p>
               <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
@@ -394,7 +368,7 @@ export default function Contact({ details }: ContactProps) {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-[#C5A880] hover:bg-white text-black font-semibold text-[10px] tracking-[0.2em] px-7 py-3.5 rounded uppercase transition-all duration-500 shadow-xl inline-flex items-center space-x-2 shrink-0 cursor-pointer"
+            className="bg-[#8E724F] hover:bg-[#715A3D] text-white font-semibold text-[10px] tracking-[0.2em] px-7 py-3.5 rounded uppercase transition-all duration-500 shadow-md inline-flex items-center space-x-2 shrink-0 cursor-pointer"
           >
             <span>CHECK AVAILABILITY</span>
             <span className="font-sans text-xs">→</span>
@@ -413,7 +387,7 @@ export default function Contact({ details }: ContactProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
-              className="fixed inset-0 bg-black/90 backdrop-blur-md"
+              className="fixed inset-0 bg-black/60 backdrop-blur-md"
             />
 
             {/* Modal Content Frame */}
@@ -422,12 +396,12 @@ export default function Contact({ details }: ContactProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 30 }}
               transition={{ type: "spring", stiffness: 300, damping: 28 }}
-              className="relative w-full max-w-2xl bg-[#0F0E0C] border border-zinc-800 rounded-xl p-6 md:p-10 shadow-2xl z-10 max-h-[90vh] overflow-y-auto scrollbar-thin"
+              className="relative w-full max-w-2xl bg-white border border-[#E6DCD3] rounded-2xl p-6 md:p-10 shadow-2xl z-10 max-h-[90vh] overflow-y-auto"
             >
               {/* Close Button */}
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-full transition-colors cursor-pointer"
+                className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-luxury-black hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
                 title="Close Form"
               >
                 <X className="w-5 h-5" />
@@ -435,10 +409,10 @@ export default function Contact({ details }: ContactProps) {
 
               <div className="mb-8 pr-8">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-[#C5A880] font-semibold">RESERVATION CONSOLE</span>
-                  <div className="w-1 h-1 bg-[#C5A880] rounded-full" />
+                  <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-[#8E724F] font-semibold">RESERVATION CONSOLE</span>
+                  <div className="w-1 h-1 bg-[#8E724F] rounded-full" />
                 </div>
-                <h3 className="font-serif text-2xl md:text-3xl text-white font-light tracking-wide">Request Booking Availability</h3>
+                <h3 className="font-serif text-2xl md:text-3xl text-luxury-black font-light tracking-wide">Request Booking Availability</h3>
                 <p className="text-zinc-500 text-xs font-light mt-1">
                   Share your celebration coordinates below for an absolute proposal.
                 </p>
@@ -449,8 +423,8 @@ export default function Contact({ details }: ContactProps) {
                 {/* Name fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="block text-zinc-400 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Your Full Name <span className="text-[#C5A880]">*</span>
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Your Full Name <span className="text-[#8E724F]">*</span>
                     </label>
                     <input
                       type="text"
@@ -458,12 +432,12 @@ export default function Contact({ details }: ContactProps) {
                       value={formData.clientName}
                       onChange={handleInputChange}
                       placeholder="Enter full name"
-                      className="w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-4 py-3 text-xs text-white focus:outline-none focus:border-[#C5A880] transition-all font-sans"
+                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
                       required
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-zinc-400 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
                       Partner's Name
                     </label>
                     <input
@@ -472,7 +446,7 @@ export default function Contact({ details }: ContactProps) {
                       value={formData.partnerName}
                       onChange={handleInputChange}
                       placeholder="Enter partner name"
-                      className="w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-4 py-3 text-xs text-white focus:outline-none focus:border-[#C5A880] transition-all font-sans"
+                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
                     />
                   </div>
                 </div>
@@ -480,33 +454,33 @@ export default function Contact({ details }: ContactProps) {
                 {/* Event Type & Date */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="block text-zinc-400 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Visual Package Category <span className="text-[#C5A880]">*</span>
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Visual Package Category <span className="text-[#8E724F]">*</span>
                     </label>
                     <select
                       name="eventType"
                       value={formData.eventType}
                       onChange={handleInputChange}
-                      className="w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-4 py-3 text-xs text-white focus:outline-none focus:border-[#C5A880] transition-all font-sans cursor-pointer"
+                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans cursor-pointer"
                       required
                     >
                       {eventTypes.map((t) => (
-                        <option key={t} value={t} className="bg-zinc-950 text-white">
+                        <option key={t} value={t} className="bg-white text-luxury-black">
                           {t}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-zinc-400 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Celebration Calendar Date <span className="text-[#C5A880]">*</span>
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Celebration Calendar Date <span className="text-[#8E724F]">*</span>
                     </label>
                     <input
                       type="date"
                       name="eventDate"
                       value={formData.eventDate}
                       onChange={handleInputChange}
-                      className="w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-4 py-3 text-xs text-white focus:outline-none focus:border-[#C5A880] transition-all font-sans cursor-pointer"
+                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans cursor-pointer"
                       required
                     />
                   </div>
@@ -515,8 +489,8 @@ export default function Contact({ details }: ContactProps) {
                 {/* Email & Phone */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="block text-zinc-400 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Electronic Mail <span className="text-[#C5A880]">*</span>
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Electronic Mail <span className="text-[#8E724F]">*</span>
                     </label>
                     <input
                       type="email"
@@ -524,13 +498,13 @@ export default function Contact({ details }: ContactProps) {
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="email@example.com"
-                      className="w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-4 py-3 text-xs text-white focus:outline-none focus:border-[#C5A880] transition-all font-sans"
+                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
                       required
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-zinc-400 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Mobile Number <span className="text-[#C5A880]">*</span>
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Mobile Number <span className="text-[#8E724F]">*</span>
                     </label>
                     <input
                       type="tel"
@@ -538,7 +512,7 @@ export default function Contact({ details }: ContactProps) {
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="e.g. +91 99999 99999"
-                      className="w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-4 py-3 text-xs text-white focus:outline-none focus:border-[#C5A880] transition-all font-sans"
+                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
                       required
                     />
                   </div>
@@ -546,8 +520,8 @@ export default function Contact({ details }: ContactProps) {
 
                 {/* Narrative Message */}
                 <div className="space-y-1.5">
-                  <label className="block text-zinc-400 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                    Narrative Details &amp; style dreams <span className="text-[#C5A880]">*</span>
+                  <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                    Narrative Details &amp; style dreams <span className="text-[#8E724F]">*</span>
                   </label>
                   <textarea
                     name="message"
@@ -555,7 +529,7 @@ export default function Contact({ details }: ContactProps) {
                     onChange={handleInputChange}
                     rows={4}
                     placeholder="Describe your celebration, venue coordinates, flow, and visual preferences..."
-                    className="w-full bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-4 py-3 text-xs text-white focus:outline-none focus:border-[#C5A880] transition-all font-sans resize-none"
+                    className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans resize-none"
                     required
                   />
                 </div>
@@ -567,7 +541,7 @@ export default function Contact({ details }: ContactProps) {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="p-4 bg-red-950/40 border border-red-900/50 text-red-400 rounded text-xs font-sans font-medium"
+                      className="p-4 bg-red-50 border border-red-200 text-red-700 rounded text-xs font-sans font-medium"
                     >
                       {errorMsg}
                     </motion.div>
@@ -578,30 +552,30 @@ export default function Contact({ details }: ContactProps) {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="p-5 bg-emerald-950/40 border border-emerald-900/50 text-emerald-300 rounded-lg text-xs flex items-start space-x-3.5 font-sans"
+                      className="p-5 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-lg text-xs flex items-start space-x-3.5 font-sans"
                     >
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold text-sm text-emerald-200">Transmission Complete</p>
-                        <p className="opacity-95 mt-1">{successMsg}</p>
+                        <p className="font-bold text-sm text-emerald-900">Transmission Complete</p>
+                        <p className="opacity-95 mt-1 text-emerald-800">{successMsg}</p>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
                 {/* Form CTA Buttons */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-zinc-900">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-[#E6DCD3]">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-3 rounded border border-zinc-800 hover:bg-zinc-900 text-zinc-300 font-mono text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+                    className="px-5 py-3 rounded border border-[#E6DCD3] hover:bg-zinc-50 text-zinc-700 font-mono text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 py-3 rounded bg-[#C5A880] hover:bg-white text-black font-semibold text-[10px] uppercase tracking-wider transition-all shadow-xl flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="px-6 py-3 rounded bg-[#8E724F] hover:bg-[#715A3D] text-white font-semibold text-[10px] uppercase tracking-wider transition-all shadow-md flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {loading ? (
                       <>
