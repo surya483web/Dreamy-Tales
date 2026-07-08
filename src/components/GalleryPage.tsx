@@ -312,10 +312,11 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
             onWheel={handleLightboxWheel}
             onTouchStart={handleLightboxTouchStart}
             onTouchEnd={handleLightboxTouchEnd}
-            className="fixed inset-0 z-50 bg-black/98 backdrop-blur-2xl flex flex-col items-center justify-center p-4 md:p-10 select-none"
+            onClick={closeLightbox}
+            className="fixed inset-0 z-50 bg-black/98 backdrop-blur-2xl flex flex-col items-center justify-center p-4 md:p-10 select-none cursor-pointer"
           >
             {/* Top Toolbar Controls */}
-            <div className="absolute top-6 left-6 right-6 flex items-center justify-between text-white/80 z-50">
+            <div className="absolute top-6 left-6 right-6 flex items-center justify-between text-white/80 z-50 cursor-default" onClick={(e) => e.stopPropagation()}>
               <div className="flex flex-col text-left">
                 <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-zinc-400">
                   {currentItem.mediaType === "video" ? "Cinematic Film" : "Photograph"}
@@ -326,29 +327,30 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
               <div className="flex items-center space-x-3">
                 {currentItem.mediaType === "video" && (
                    <button
-                     onClick={toggleLightboxMute}
-                     className="p-2.5 rounded-full bg-black hover:bg-zinc-800 text-white transition-all border border-zinc-900 cursor-pointer"
+                     onClick={(e) => { e.stopPropagation(); toggleLightboxMute(); }}
+                     className="p-2.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-white transition-all border border-zinc-700 cursor-pointer"
                      title="Toggle Audio"
                    >
                      {isLightboxMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                    </button>
                  )}
                 <button
-                  onClick={closeLightbox}
-                  className="p-2.5 rounded-full bg-black hover:bg-zinc-800 text-white transition-all border border-zinc-900 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+                  className="flex items-center space-x-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-white text-black hover:bg-zinc-200 transition-all border border-white/20 cursor-pointer shadow-xl"
                   title="Close Lightbox"
                 >
-                  <X className="w-4 h-4" />
+                  <span className="font-sans text-[11px] font-bold tracking-[0.2em] uppercase">CLOSE</span>
+                  <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </div>
 
             {/* Main Stage Media */}
-            <div className="relative w-full max-w-5xl h-[65vh] md:h-[78vh] flex items-center justify-center">
+            <div className="relative w-full max-w-5xl h-[65vh] md:h-[78vh] flex items-center justify-center cursor-default" onClick={(e) => e.stopPropagation()}>
               {/* Navigation Left */}
               <button
-                onClick={() => navigateLightbox("prev")}
-                className="absolute left-0 md:-left-16 p-3 rounded-full bg-black hover:bg-zinc-800 text-white transition-all z-30 border border-zinc-900 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); navigateLightbox("prev"); }}
+                className="absolute left-0 md:-left-16 p-3 rounded-full bg-black/60 hover:bg-zinc-800 text-white transition-all z-30 border border-zinc-800 cursor-pointer"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -377,15 +379,15 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
 
               {/* Navigation Right */}
               <button
-                onClick={() => navigateLightbox("next")}
-                className="absolute right-0 md:-right-16 p-3 rounded-full bg-black hover:bg-zinc-800 text-white transition-all z-30 border border-zinc-900 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); navigateLightbox("next"); }}
+                className="absolute right-0 md:-right-16 p-3 rounded-full bg-black/60 hover:bg-zinc-800 text-white transition-all z-30 border border-zinc-800 cursor-pointer"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
 
             {/* Bottom Carousel Indicator */}
-            <div className="absolute bottom-6 font-mono text-[10px] tracking-widest text-white/40">
+            <div className="absolute bottom-6 font-mono text-[10px] tracking-widest text-white/40 cursor-default" onClick={(e) => e.stopPropagation()}>
               {selectedIdx !== null ? selectedIdx + 1 : 0} / {filteredPhotos.length}
             </div>
           </motion.div>

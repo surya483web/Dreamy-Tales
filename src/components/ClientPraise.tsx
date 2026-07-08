@@ -67,11 +67,11 @@ export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
             CLIENT <span className="italic font-light lowercase" style={{ fontVariant: "normal" }}>reviews</span>
           </h2>
 
-          {/* Decorative Gold Divider (flourish matching the reference) */}
+          {/* Decorative Divider (flourish matching the black & white reference) */}
           <div className="flex items-center justify-center gap-4 mt-6">
-            <div className="w-14 h-[1px] bg-[#C5A880]/35"></div>
-            <span className="text-[#C5A880] text-sm select-none">✥</span>
-            <div className="w-14 h-[1px] bg-[#C5A880]/35"></div>
+            <div className="w-14 h-[1px] bg-zinc-200"></div>
+            <span className="text-zinc-400 text-sm select-none">✥</span>
+            <div className="w-14 h-[1px] bg-zinc-200"></div>
           </div>
         </div>
 
@@ -89,7 +89,7 @@ export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
               {/* Left Column: Text Testimonial Content */}
               <div className="flex-1 flex flex-col justify-center w-full">
                 {/* Quotes */}
-                <div className="text-[#C5A880] font-serif text-[72px] md:text-[80px] leading-none mb-2 select-none h-12">
+                <div className="text-zinc-300 font-serif text-[72px] md:text-[80px] leading-none mb-2 select-none h-12">
                   “
                 </div>
 
@@ -98,10 +98,10 @@ export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
                   {currentReview.clientName}
                 </h3>
 
-                {/* Gold Category Divider */}
+                {/* Category Divider */}
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-[1px] bg-[#C5A880]"></div>
-                  <span className="font-sans text-[10px] md:text-xs uppercase tracking-[0.25em] text-[#C5A880] font-semibold">
+                  <div className="w-8 h-[1px] bg-zinc-300"></div>
+                  <span className="font-sans text-[10px] md:text-xs uppercase tracking-[0.25em] text-zinc-500 font-semibold">
                     PORTRAIT OF LOVE
                   </span>
                 </div>
@@ -109,7 +109,7 @@ export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
                 {/* Styled Testimonial Body with Dropcap */}
                 <div className="text-zinc-600 font-sans text-[14px] md:text-[15px] leading-[1.8] text-justify tracking-wide whitespace-pre-line">
                   {firstChar && (
-                    <span className="font-serif text-[52px] md:text-[60px] text-[#C5A880] float-left mr-3 mt-1 leading-[0.85] font-light">
+                    <span className="font-serif text-[52px] md:text-[60px] text-zinc-400 float-left mr-3 mt-1 leading-[0.85] font-light">
                       {firstChar}
                     </span>
                   )}
@@ -118,10 +118,10 @@ export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
 
                 {/* Handwritten Signature and Gold Heart */}
                 <div className="mt-8 flex items-center gap-3.5">
-                  <span className="font-signature text-3xl md:text-[38px] text-[#C5A880] leading-none select-none pt-2">
+                  <span className="font-signature text-3xl md:text-[38px] text-zinc-800 leading-none select-none pt-2">
                     {currentReview.clientName}
                   </span>
-                  <span className="text-[#C5A880]/80 text-xl select-none leading-none">♡</span>
+                  <span className="text-zinc-400 text-xl select-none leading-none">♡</span>
                 </div>
               </div>
 
@@ -150,8 +150,8 @@ export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
                 onClick={() => setActiveIndex(idx)}
                 className={`w-2 h-2 rounded-full transition-all duration-300 ${
                   idx === activeIndex 
-                    ? "bg-[#C5A880] scale-125" 
-                    : "bg-zinc-300 hover:bg-zinc-400 cursor-pointer"
+                    ? "bg-zinc-900 scale-125" 
+                    : "bg-zinc-200 hover:bg-zinc-300 cursor-pointer"
                 }`}
                 aria-label={`Go to review ${idx + 1}`}
               />

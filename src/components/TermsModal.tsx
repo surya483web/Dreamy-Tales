@@ -45,8 +45,8 @@ export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: Ter
             {/* Elegant Top Bar */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800 shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="w-1.5 h-1.5 bg-[#C5A880] rounded-full" />
-                <span className="font-serif text-sm uppercase tracking-[0.2em] text-[#C5A880]">
+                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                <span className="font-serif text-sm uppercase tracking-[0.2em] text-zinc-300">
                   {brandName} Legal Guidelines
                 </span>
               </div>
@@ -72,7 +72,7 @@ export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: Ter
 
               {/* Section 1: Introduction */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2.5 text-[#C5A880]">
+                <div className="flex items-center space-x-2.5 text-zinc-400">
                   <FileText className="w-4 h-4" />
                   <h3 className="font-serif text-base uppercase tracking-wider text-white">
                     1. Scope of Engagement
@@ -88,7 +88,7 @@ export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: Ter
 
               {/* Section 2: Creative Control */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2.5 text-[#C5A880]">
+                <div className="flex items-center space-x-2.5 text-zinc-400">
                   <Scale className="w-4 h-4" />
                   <h3 className="font-serif text-base uppercase tracking-wider text-white">
                     2. Artistic Direction &amp; Creative Control
@@ -104,7 +104,7 @@ export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: Ter
 
               {/* Section 3: Copyright & Ownership */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2.5 text-[#C5A880]">
+                <div className="flex items-center space-x-2.5 text-zinc-400">
                   <Shield className="w-4 h-4" />
                   <h3 className="font-serif text-base uppercase tracking-wider text-white">
                     3. Intellectual Property Rights
@@ -120,7 +120,7 @@ export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: Ter
 
               {/* Section 4: Privacy & Protection */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2.5 text-[#C5A880]">
+                <div className="flex items-center space-x-2.5 text-zinc-400">
                   <Lock className="w-4 h-4" />
                   <h3 className="font-serif text-base uppercase tracking-wider text-white">
                     4. Privacy and Personal Data Policy
@@ -136,7 +136,7 @@ export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: Ter
 
               {/* Section 5: Cancellations & Limits */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2.5 text-[#C5A880]">
+                <div className="flex items-center space-x-2.5 text-zinc-400">
                   <Scale className="w-4 h-4" />
                   <h3 className="font-serif text-base uppercase tracking-wider text-white">
                     5. Cancellation and Force Majeure
@@ -153,7 +153,7 @@ export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: Ter
               <span>&copy; {new Date().getFullYear()} {brandName} Services Pvt. Ltd.</span>
               <button
                 onClick={onClose}
-                className="px-5 py-2.5 bg-[#C5A880] text-black font-semibold uppercase tracking-wider rounded text-[10px] hover:bg-[#DBC19C] active:scale-95 transition-all cursor-pointer"
+                className="px-5 py-2.5 bg-white text-black font-semibold uppercase tracking-wider rounded text-[10px] hover:bg-zinc-200 active:scale-95 transition-all cursor-pointer"
               >
                 Acknowledge
               </button>

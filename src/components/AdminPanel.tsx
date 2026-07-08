@@ -54,6 +54,17 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
   const [uploadingReviewRight, setUploadingReviewRight] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
 
+  const isAnyUploading = 
+    uploadingMedia || 
+    uploadingThumbnail || 
+    uploadingHero || 
+    uploadingAbout || 
+    uploadingPhilosophyBg || 
+    uploadingStatsBg || 
+    uploadingSlide || 
+    uploadingReviewLeft || 
+    uploadingReviewRight;
+
   useEffect(() => {
     if (alertMsg) {
       const timer = setTimeout(() => {
@@ -508,8 +519,18 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       finalTitle = "Dreamy Story Item";
     }
 
+    if (uploadingMedia || uploadingThumbnail) {
+      alert("Please wait for the media files to finish uploading before adding.");
+      return;
+    }
+
     if (!newItem.mediaUrl) {
       alert("Please upload a file or specify a direct asset media URL.");
+      return;
+    }
+
+    if (newItem.mediaUrl.startsWith("blob:") || (newItem.thumbnail && newItem.thumbnail.startsWith("blob:"))) {
+      alert("Please wait for the upload to complete before confirming.");
       return;
     }
 
@@ -665,11 +686,11 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
             </button>
             <button
               onClick={handleSaveChanges}
-              disabled={saving}
-              className="flex-grow sm:flex-grow-0 px-4 py-2 bg-black hover:bg-zinc-800 disabled:bg-zinc-600 text-white font-semibold rounded text-[10px] md:text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 shadow-lg cursor-pointer border border-white/15"
+              disabled={saving || isAnyUploading}
+              className="flex-grow sm:flex-grow-0 px-4 py-2 bg-black hover:bg-zinc-800 disabled:bg-zinc-600 disabled:cursor-not-allowed text-white font-semibold rounded text-[10px] md:text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 shadow-lg cursor-pointer border border-white/15"
             >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Save className="w-3.5 h-3.5 text-white" />}
-              <span className="text-white">Save Live Changes</span>
+              {saving || isAnyUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Save className="w-3.5 h-3.5 text-white" />}
+              <span className="text-white">{isAnyUploading ? "Uploading..." : "Save Live Changes"}</span>
             </button>
           </div>
         </div>
@@ -1261,9 +1282,10 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                 <button
                   type="button"
                   onClick={handleAddPortfolioItem}
-                  className="mt-5 px-4 py-2 bg-gold hover:bg-gold-dark hover:text-white text-luxury-black font-semibold rounded text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                  disabled={uploadingMedia || uploadingThumbnail || !newItem.mediaUrl || newItem.mediaUrl.startsWith("blob:")}
+                  className="mt-5 px-4 py-2 bg-gold hover:bg-gold-dark hover:text-white text-luxury-black font-semibold rounded text-[10px] uppercase tracking-wider transition-all cursor-pointer disabled:bg-zinc-300 disabled:text-zinc-500 disabled:cursor-not-allowed"
                 >
-                  Confirm Asset Addition
+                  {uploadingMedia || uploadingThumbnail ? "Uploading File..." : "Confirm Asset Addition"}
                 </button>
               </div>
 
@@ -1422,10 +1444,20 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                   <button
                     type="button"
                     onClick={() => {
+                      if (uploadingReviewLeft || uploadingReviewRight) {
+                        alert("Please wait for the images to finish uploading before adding.");
+                        return;
+                      }
+
                       const clientName = newReview.clientName.trim();
                       const text = newReview.text.trim();
                       if (!clientName || !text) {
                         alert("Please provide at least a Client Name and Testimonial text.");
+                        return;
+                      }
+
+                      if (newReview.leftImage.startsWith("blob:") || newReview.rightImage.startsWith("blob:")) {
+                        alert("Please wait for the image uploads to complete before confirming.");
                         return;
                       }
 
@@ -1470,9 +1502,10 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                         text: "",
                       });
                     }}
-                    className="mt-5 px-4 py-2 bg-gold hover:bg-gold-dark hover:text-white text-luxury-black font-semibold rounded text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                    disabled={uploadingReviewLeft || uploadingReviewRight}
+                    className="mt-5 px-4 py-2 bg-gold hover:bg-gold-dark hover:text-white text-luxury-black font-semibold rounded text-[10px] uppercase tracking-wider transition-all cursor-pointer disabled:bg-zinc-300 disabled:text-zinc-500 disabled:cursor-not-allowed"
                   >
-                    {editingReviewId ? "Update Testimonial Review" : "Add Testimonial Review"}
+                    {uploadingReviewLeft || uploadingReviewRight ? "Uploading images..." : (editingReviewId ? "Update Testimonial Review" : "Add Testimonial Review")}
                   </button>
 
                   {editingReviewId && (

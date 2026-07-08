@@ -451,7 +451,7 @@ export default function About({ about }: AboutProps) {
       <div className="w-full max-w-[1100px] mx-auto px-6 md:px-8 mt-8">
         <div className="w-full h-[1.5px] bg-zinc-150 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-gold transition-all duration-320 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            className="h-full bg-black transition-all duration-320 ease-[cubic-bezier(0.16,1,0.3,1)]"
             style={{
               width: `${((normalizedIndex + 1) / N) * 100}%`,
             }}
