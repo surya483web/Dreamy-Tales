@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { ClientReview } from "../types";
 
 interface ClientPraiseProps {
@@ -39,114 +38,155 @@ export default function ClientPraise({ reviews = [] }: ClientPraiseProps) {
         "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800"
       ];
 
-  // We want to display up to 2 images side by side as in the screenshot
-  const imageLeft = reviewImages[0];
-  const imageRight = reviewImages[1] || reviewImages[0]; // fallback to first image if second is not provided
+  const primaryImage = reviewImages[0];
+
+  // For dropcap effect: separate first letter of review text
+  const reviewText = currentReview.text || "";
+  const firstChar = reviewText.charAt(0);
+  const restOfText = reviewText.slice(1);
 
   return (
-    <section id="praise" className="relative py-24 md:py-32 bg-white overflow-hidden border-t border-zinc-200/50">
-      {/* Background elegant details */}
-      <div className="absolute top-1/2 left-0 w-80 h-80 bg-gold/5 rounded-full blur-3xl -translate-y-1/2 -z-10" />
-      <div className="absolute top-10 right-10 w-96 h-96 bg-zinc-100 rounded-full blur-2xl -z-10" />
+    <section 
+      id="praise" 
+      className="relative py-24 md:py-32 bg-[#FAF9F5] overflow-hidden border-t border-zinc-200/40 select-none"
+    >
+      {/* Background soft ambient luxury glows */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-white/40 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-zinc-100/50 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-4xl mx-auto px-6">
+      <div className="max-w-[1020px] mx-auto px-6 relative z-10">
         {/* Editorial Section Heading */}
-        <div className="text-center mb-14 md:mb-20">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="flex items-center justify-center gap-2 mb-3"
-          >
-            <span className="font-mono text-[9px] md:text-xs uppercase tracking-[0.5em] text-gold-dark font-semibold">
+        <div className="text-center mb-14 md:mb-16">
+          <div className="mb-3">
+            <span className="font-sans text-[11px] md:text-xs uppercase tracking-[0.45em] text-zinc-400 font-medium">
               KIND WORDS
             </span>
-          </motion.div>
-          <motion.h2
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#1A1A1A] tracking-wider uppercase font-light"
-          >
-            Client <span className="italic font-normal">Praise</span>
-          </motion.h2>
-          <div className="w-16 h-[1px] bg-gold/40 mx-auto mt-6" />
+          </div>
+          
+          <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl text-neutral-900 tracking-[0.08em] uppercase font-light">
+            CLIENT <span className="italic font-light lowercase" style={{ fontVariant: "normal" }}>reviews</span>
+          </h2>
+
+          {/* Decorative Gold Divider (flourish matching the reference) */}
+          <div className="flex items-center justify-center gap-4 mt-6">
+            <div className="w-14 h-[1px] bg-[#C5A880]/35"></div>
+            <span className="text-[#C5A880] text-sm select-none">✥</span>
+            <div className="w-14 h-[1px] bg-[#C5A880]/35"></div>
+          </div>
         </div>
 
-        {/* Interactive Carousel Area */}
-        <div className="relative">
+        {/* Carousel Card Wrapper */}
+        <div className="relative mb-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeIndex}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="flex flex-col items-center"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-white border border-zinc-100 rounded-2xl md:rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.03)] p-6 sm:p-10 md:p-14 md:px-16 flex flex-col md:flex-row gap-10 md:gap-14 items-center"
             >
-              {/* Dual Portrait Images Layout from Screenshot */}
-              <div className="grid grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl mb-12">
-                <div className="aspect-[3/4] overflow-hidden rounded bg-zinc-100 shadow-lg border border-white/50 group relative">
-                  <img
-                    src={imageLeft}
-                    alt={`${currentReview.clientName} portrait left`}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transition-all duration-[1.5s] ease-out group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/5 mix-blend-multiply pointer-events-none" />
+              {/* Left Column: Text Testimonial Content */}
+              <div className="flex-1 flex flex-col justify-center w-full">
+                {/* Quotes */}
+                <div className="text-[#C5A880] font-serif text-[72px] md:text-[80px] leading-none mb-2 select-none h-12">
+                  “
                 </div>
-                <div className="aspect-[3/4] overflow-hidden rounded bg-zinc-100 shadow-lg border border-white/50 group relative">
-                  <img
-                    src={imageRight}
-                    alt={`${currentReview.clientName} portrait right`}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transition-all duration-[1.5s] ease-out group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/5 mix-blend-multiply pointer-events-none" />
+
+                {/* Client Name Heading */}
+                <h3 className="font-serif text-2xl sm:text-3xl md:text-[32px] text-neutral-800 leading-tight mb-4 font-light tracking-wide">
+                  {currentReview.clientName}
+                </h3>
+
+                {/* Gold Category Divider */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-[1px] bg-[#C5A880]"></div>
+                  <span className="font-sans text-[10px] md:text-xs uppercase tracking-[0.25em] text-[#C5A880] font-semibold">
+                    PORTRAIT OF LOVE
+                  </span>
+                </div>
+
+                {/* Styled Testimonial Body with Dropcap */}
+                <div className="text-zinc-600 font-sans text-[14px] md:text-[15px] leading-[1.8] text-justify tracking-wide whitespace-pre-line">
+                  {firstChar && (
+                    <span className="font-serif text-[52px] md:text-[60px] text-[#C5A880] float-left mr-3 mt-1 leading-[0.85] font-light">
+                      {firstChar}
+                    </span>
+                  )}
+                  {restOfText}
+                </div>
+
+                {/* Handwritten Signature and Gold Heart */}
+                <div className="mt-8 flex items-center gap-3.5">
+                  <span className="font-signature text-3xl md:text-[38px] text-[#C5A880] leading-none select-none pt-2">
+                    {currentReview.clientName}
+                  </span>
+                  <span className="text-[#C5A880]/80 text-xl select-none leading-none">♡</span>
                 </div>
               </div>
 
-              {/* Client Name Heading */}
-              <h3 className="font-serif text-2xl sm:text-3xl md:text-4xl text-[#1A1A1A] tracking-wide mb-8 text-center uppercase font-light">
-                {currentReview.clientName}
-              </h3>
-
-              {/* Styled Testimonial Block */}
-              <div className="max-w-2xl text-center">
-                <p className="text-zinc-600 font-sans text-sm sm:text-base md:text-lg font-light leading-relaxed tracking-wide text-justify md:text-center whitespace-pre-line first-letter:text-3xl first-letter:font-serif first-letter:text-gold first-letter:float-left first-letter:mr-3 first-letter:leading-none">
-                  {currentReview.text}
-                </p>
+              {/* Right Column: Stunning Portrait Image */}
+              <div className="w-full md:w-[44%] aspect-[3/4.2] overflow-hidden rounded-[12px] bg-zinc-50 border border-black/[0.03] group relative shrink-0">
+                <img
+                  src={primaryImage}
+                  alt={`${currentReview.clientName} portrait`}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out md:group-hover:scale-103"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/[0.02] mix-blend-multiply pointer-events-none" />
               </div>
             </motion.div>
           </AnimatePresence>
+        </div>
 
-          {/* Elegant Floating Carousel Controls */}
-          <div className="flex justify-center items-center gap-12 mt-12 md:mt-16">
+        {/* Carousel Navigation Area */}
+        <div className="mt-8 md:mt-12 flex flex-col items-center">
+          {/* Pagination dots (matching image) */}
+          <div className="flex justify-center gap-2.5 mb-10">
+            {reviews.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveIndex(idx)}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  idx === activeIndex 
+                    ? "bg-[#C5A880] scale-125" 
+                    : "bg-zinc-300 hover:bg-zinc-400 cursor-pointer"
+                }`}
+                aria-label={`Go to review ${idx + 1}`}
+              />
+            ))}
+          </div>
+
+          {/* Nav Control Buttons (Prev button, Slide indicator, Next button) */}
+          <div className="flex items-center justify-between w-full max-w-[420px] px-2">
+            {/* Prev Button */}
             <button
               onClick={handlePrev}
-              className="group flex items-center gap-3 text-zinc-400 hover:text-gold text-xs uppercase tracking-[0.3em] font-medium transition-colors"
+              className="px-6 py-3 bg-white hover:bg-zinc-50 border border-zinc-200 text-neutral-800 text-[11px] uppercase tracking-[0.2em] font-semibold transition-all flex items-center gap-2 rounded-[4px] cursor-pointer shadow-sm hover:border-zinc-300"
               aria-label="Previous Review"
               id="praise-prev-btn"
             >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span>PREV</span>
+              <span>← &nbsp; PREV</span>
             </button>
             
-            <div className="text-[10px] font-mono tracking-[0.2em] text-zinc-400">
-              <span className="text-gold font-bold">{activeIndex + 1}</span> / {reviews.length}
+            {/* Index Counter */}
+            <div className="font-serif text-[15px] tracking-[0.1em] text-neutral-700 italic select-none">
+              {activeIndex + 1} &nbsp;/&nbsp; {reviews.length}
             </div>
 
+            {/* Next Button */}
             <button
               onClick={handleNext}
-              className="group flex items-center gap-3 text-zinc-400 hover:text-gold text-xs uppercase tracking-[0.3em] font-medium transition-colors"
+              className="px-6 py-3 bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] uppercase tracking-[0.2em] font-semibold transition-all flex items-center gap-2 rounded-[4px] cursor-pointer shadow-md hover:shadow-lg"
               aria-label="Next Review"
               id="praise-next-btn"
             >
-              <span>NEXT</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span>NEXT &nbsp; →</span>
             </button>
           </div>
         </div>
+
       </div>
     </section>
   );

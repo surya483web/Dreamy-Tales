@@ -1,19 +1,35 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { PortfolioItem } from "../types";
-import { Play, X, Volume2, VolumeX, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, X, Volume2, VolumeX, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 interface PortfolioProps {
   items?: PortfolioItem[];
+  onViewMore?: () => void;
 }
 
-export default function Portfolio({ items = [] }: PortfolioProps) {
+export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
+  const [allPortfolioItems, setAllPortfolioItems] = useState<PortfolioItem[]>(items);
   const [activeFilter, setActiveFilter] = useState<string>("All");
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [isLightboxMuted, setIsLightboxMuted] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasLoadedExternal, setHasLoadedExternal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const lightboxVideoRef = useRef<HTMLVideoElement>(null);
 
-  const safeItems = items || [];
+  useEffect(() => {
+    // Keep local list in sync with admin updates while preserving loaded samaro items
+    setAllPortfolioItems(prev => {
+      const samaroItems = prev.filter(item => item.id.toString().startsWith("samaro-"));
+      const existingUrls = new Set(items.map(i => i.mediaUrl));
+      const filteredSamaro = samaroItems.filter(item => !existingUrls.has(item.mediaUrl));
+      return [...items, ...filteredSamaro];
+    });
+  }, [items]);
+
+  const safeItems = allPortfolioItems;
   const currentItem = selectedIdx !== null ? safeItems[selectedIdx] : null;
 
   useEffect(() => {
@@ -21,6 +37,45 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
       lightboxVideoRef.current.load();
     }
   }, [currentItem?.mediaUrl]);
+
+  const loadSamaroGallery = async () => {
+    setIsLoadingMore(true);
+    setErrorMessage("");
+    try {
+      const response = await fetch("/api/samaro-gallery");
+      const data = await response.json();
+      if (data.success && data.items) {
+        // Prevent duplication of URLs
+        const existingUrls = new Set(allPortfolioItems.map(item => item.mediaUrl));
+        const uniqueNewItems = data.items.filter((item: PortfolioItem) => !existingUrls.has(item.mediaUrl));
+        
+        setAllPortfolioItems(prev => [...prev, ...uniqueNewItems]);
+        setHasLoadedExternal(true);
+      } else {
+        setErrorMessage(data.error || "Failed to load external gallery.");
+      }
+    } catch (err: any) {
+      setErrorMessage("Could not connect to service. Please try again.");
+      console.error(err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const handleViewMoreClick = async () => {
+    if (onViewMore) {
+      onViewMore();
+      return;
+    }
+    if (showAll) {
+      setShowAll(false);
+    } else {
+      setShowAll(true);
+      if (!hasLoadedExternal) {
+        await loadSamaroGallery();
+      }
+    }
+  };
 
   const categories = ["All", "Films", "Photography", "Pre-Wedding", "Candid"];
 
@@ -34,6 +89,8 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
     if (activeFilter === "Photography") return itemMediaType === "image";
     return itemCategory.toLowerCase() === activeFilter.toLowerCase();
   });
+
+  const visibleItems = showAll ? filteredItems : filteredItems.slice(0, 6);
 
   const openLightbox = (item: PortfolioItem) => {
     const idx = safeItems.findIndex((i) => i.id === item.id);
@@ -54,6 +111,69 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
     setSelectedIdx(nextIdx);
   };
 
+  // Keyboard navigation support for Lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedIdx === null) return;
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowRight") navigateLightbox("next");
+      if (e.key === "ArrowLeft") navigateLightbox("prev");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIdx, safeItems]);
+
+  // Preload lightbox images for instant continuous display with zero delay
+  useEffect(() => {
+    if (selectedIdx === null || safeItems.length === 0) return;
+    const offsets = [-2, -1, 1, 2, 3];
+    offsets.forEach((offset) => {
+      const idx = (selectedIdx + offset + safeItems.length) % safeItems.length;
+      const item = safeItems[idx];
+      if (item && item.mediaUrl && item.mediaType === "image") {
+        const img = new Image();
+        img.src = item.mediaUrl;
+      }
+    });
+  }, [selectedIdx, safeItems]);
+
+  // Swipe & mousewheel continuous scrolling helpers
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const lastWheelTime = useRef(0);
+
+  const handleLightboxTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleLightboxTouchEnd = (e: React.TouchEvent) => {
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        navigateLightbox("next");
+      } else {
+        navigateLightbox("prev");
+      }
+    }
+  };
+
+  const handleLightboxWheel = (e: React.WheelEvent) => {
+    const now = Date.now();
+    // Throttle scroll wheel so user can continuously navigate cleanly without jerky skipping
+    if (now - lastWheelTime.current < 250) return;
+    
+    if (Math.abs(e.deltaY) > 20 || Math.abs(e.deltaX) > 20) {
+      lastWheelTime.current = now;
+      if (e.deltaY > 0 || e.deltaX > 0) {
+        navigateLightbox("next");
+      } else {
+        navigateLightbox("prev");
+      }
+    }
+  };
+
   const toggleLightboxMute = () => {
     if (lightboxVideoRef.current) {
       lightboxVideoRef.current.muted = !lightboxVideoRef.current.muted;
@@ -67,13 +187,13 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
         
         {/* Elegant Luxury Section Header */}
         <div className="mb-20 text-center">
-          <span className="font-sans text-[10.5px] md:text-xs uppercase tracking-[0.5em] text-gold-dark mb-3 block font-semibold">
+          <span className="font-sans text-[10.5px] md:text-xs uppercase tracking-[0.5em] text-black mb-3 block font-semibold">
             VISUAL CATALOGUE
           </span>
           <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl text-luxury-black tracking-wide font-light leading-tight">
             Films &amp; Photos
           </h2>
-          <div className="w-12 h-[1px] bg-gold-dark/40 mx-auto mt-6" />
+          <div className="w-12 h-[1px] bg-black/20 mx-auto mt-6" />
         </div>
 
         {/* Gallery Grid: 2-column Asymmetric Editorial Layout */}
@@ -82,7 +202,7 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
           className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-16 md:gap-x-20 md:gap-y-28 max-w-6xl mx-auto"
         >
           <AnimatePresence mode="popLayout">
-            {filteredItems.map((item, idx) => {
+            {visibleItems.map((item, idx) => {
               const isEvenColumn = idx % 2 === 1;
               return (
                 <motion.div
@@ -93,12 +213,12 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
                   transition={{ duration: 0.6, ease: [0.215, 0.610, 0.355, 1] }}
                   key={item.id}
                   onClick={() => openLightbox(item)}
-                  className={`group relative cursor-pointer flex flex-col ${
+                  className={`group relative cursor-pointer flex flex-col transition-all duration-500 ease-out hover:-translate-y-2.5 ${
                     isEvenColumn ? "md:mt-24" : ""
                   }`}
                 >
                   {/* Media Frame with Sharp Rectangular Edges */}
-                  <div className="relative overflow-hidden aspect-[4/5] bg-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.03)] border border-black/5">
+                  <div className="relative overflow-hidden aspect-[4/5] bg-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.1)] border border-black/5 transition-all duration-500 ease-out">
                     {item.mediaType === "video" ? (
                       <div className="w-full h-full relative">
                         <img
@@ -133,6 +253,29 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
             })}
           </AnimatePresence>
         </motion.div>
+
+        {/* Elegant Centered "View More" button with consistent typography and colors */}
+        <div className="mt-16 text-center select-none">
+          <button
+            onClick={handleViewMoreClick}
+            disabled={isLoadingMore}
+            className="relative inline-flex min-w-[200px] px-8 py-3.5 border border-black hover:bg-black hover:text-white text-luxury-black font-sans text-xs uppercase tracking-[0.2em] transition-all duration-300 rounded-none cursor-pointer font-semibold items-center justify-center gap-2"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-luxury-black hover:text-white" />
+                <span>Loading...</span>
+              </>
+            ) : showAll ? (
+              "View Less"
+            ) : (
+              "View More"
+            )}
+          </button>
+          {errorMessage && (
+            <p className="text-red-500 font-sans text-xs mt-3">{errorMessage}</p>
+          )}
+        </div>
       </div>
 
       {/* Lightbox Modal System */}
@@ -142,12 +285,15 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 md:p-10"
+            onWheel={handleLightboxWheel}
+            onTouchStart={handleLightboxTouchStart}
+            onTouchEnd={handleLightboxTouchEnd}
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 md:p-10 select-none"
           >
             {/* Top Toolbar Controls */}
             <div className="absolute top-6 left-6 right-6 flex items-center justify-between text-white/80 z-50">
               <div className="flex flex-col">
-                <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-gold">
+                <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-zinc-400">
                   {currentItem.mediaType === "video" ? "Cinematic Film" : "Photograph"}
                 </span>
                 <span className="font-serif text-xl mt-1 text-white">{currentItem.title}</span>
@@ -155,17 +301,17 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
               
               <div className="flex items-center space-x-3">
                 {currentItem.mediaType === "video" && (
-                  <button
-                    onClick={toggleLightboxMute}
-                    className="p-2.5 rounded-full bg-white/10 hover:bg-gold hover:text-luxury-black transition-all"
-                    title="Toggle Audio"
-                  >
-                    {isLightboxMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                  </button>
+                   <button
+                     onClick={toggleLightboxMute}
+                     className="p-2.5 rounded-full bg-black hover:bg-zinc-800 text-white transition-all border border-black cursor-pointer"
+                     title="Toggle Audio"
+                   >
+                     {isLightboxMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                   </button>
                 )}
                 <button
                   onClick={closeLightbox}
-                  className="p-2.5 rounded-full bg-white/10 hover:bg-gold hover:text-luxury-black transition-all"
+                  className="p-2.5 rounded-full bg-black hover:bg-zinc-800 text-white transition-all border border-black cursor-pointer"
                   title="Close Lightbox"
                 >
                   <X className="w-4 h-4" />
@@ -179,7 +325,7 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
               {/* Navigation Left */}
               <button
                 onClick={() => navigateLightbox("prev")}
-                className="absolute left-0 md:-left-16 p-3 rounded-full bg-white/5 hover:bg-gold hover:text-luxury-black text-white transition-all z-30"
+                className="absolute left-0 md:-left-16 p-3 rounded-full bg-black hover:bg-zinc-800 text-white transition-all z-30 border border-black cursor-pointer"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -208,7 +354,7 @@ export default function Portfolio({ items = [] }: PortfolioProps) {
               {/* Navigation Right */}
               <button
                 onClick={() => navigateLightbox("next")}
-                className="absolute right-0 md:-right-16 p-3 rounded-full bg-white/5 hover:bg-gold hover:text-luxury-black text-white transition-all z-30"
+                className="absolute right-0 md:-right-16 p-3 rounded-full bg-black hover:bg-zinc-800 text-white transition-all z-30 border border-black cursor-pointer"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>

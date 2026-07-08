@@ -15,7 +15,8 @@ import {
   X, 
   Compass, 
   Tv, 
-  Globe
+  Globe,
+  MessageCircle
 } from "lucide-react";
 import { StudioDetails } from "../types";
 import { motion, AnimatePresence } from "motion/react";
@@ -25,9 +26,10 @@ interface ContactProps {
   details?: StudioDetails;
   isModalOpen?: boolean;
   setIsModalOpen?: (open: boolean) => void;
+  onlyModal?: boolean;
 }
 
-export default function Contact({ details, isModalOpen: controlledModalOpen, setIsModalOpen: setControlledModalOpen }: ContactProps) {
+export default function Contact({ details, isModalOpen: controlledModalOpen, setIsModalOpen: setControlledModalOpen, onlyModal = false }: ContactProps) {
   // Modal state for Reservation Request Form with optional control from parent
   const [localModalOpen, setLocalModalOpen] = useState(false);
   const isModalOpen = controlledModalOpen !== undefined ? controlledModalOpen : localModalOpen;
@@ -38,6 +40,11 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
   const emailVal = details?.email || "dreamytalesstudio@gmail.com";
   const instagramVal = details?.instagram || "@dreamytalesstudio";
   const phoneVal = details?.phone || "+91 9717013233";
+
+  const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(locationVal)}`;
+  const telLink = `tel:${phoneVal.replace(/\s+/g, "")}`;
+  const whatsappLink = `https://wa.me/${phoneVal.replace(/[^0-9]/g, "")}`;
+  const mailLink = `mailto:${emailVal}`;
 
   const [formData, setFormData] = useState({
     clientName: "",
@@ -138,12 +145,216 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
     }
   };
 
+   if (onlyModal) {
+    return (
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            {/* Modal Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md"
+            />
+
+            {/* Modal Content Frame */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="relative w-full max-w-2xl bg-white border border-zinc-200 rounded-2xl p-6 md:p-10 shadow-2xl z-10 max-h-[90vh] overflow-y-auto font-bold text-black"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-luxury-black hover:bg-zinc-100 rounded-full transition-colors cursor-pointer"
+                title="Close Form"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="mb-8 pr-8">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-black font-extrabold">RESERVATION CONSOLE</span>
+                  <div className="w-1 h-1 bg-black rounded-full" />
+                </div>
+                <h3 className="font-serif text-2xl md:text-3xl text-luxury-black font-bold tracking-wide">Request Booking Availability</h3>
+                <p className="text-zinc-900 text-xs font-bold mt-1">
+                  Share your celebration coordinates below for an absolute proposal.
+                </p>
+              </div>
+
+              <form onSubmit={handleFormSubmit} className="space-y-6">
+                
+                {/* Name fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Your Full Name <span className="text-black">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="clientName"
+                      value={formData.clientName}
+                      onChange={handleInputChange}
+                      placeholder="Enter full name"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Partner's Name
+                    </label>
+                    <input
+                      type="text"
+                      name="partnerName"
+                      value={formData.partnerName}
+                      onChange={handleInputChange}
+                      placeholder="Enter partner name"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
+                    />
+                  </div>
+                </div>
+
+                {/* Event Type & Date */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Visual Package Category <span className="text-black">*</span>
+                    </label>
+                    <select
+                      name="eventType"
+                      value={formData.eventType}
+                      onChange={handleInputChange}
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans cursor-pointer"
+                      required
+                    >
+                      {eventTypes.map((t) => (
+                        <option key={t} value={t} className="bg-white text-luxury-black">
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Celebration Calendar Date <span className="text-black">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="eventDate"
+                      value={formData.eventDate}
+                      onChange={handleInputChange}
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans cursor-pointer"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Phone & Email */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Mobile Telephone <span className="text-black">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="+91 99999 99999"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                      Electronic Mail <span className="text-black">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="name@example.com"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Message */}
+                <div className="space-y-1.5">
+                  <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
+                    Tell us your vision / requirements <span className="text-black">*</span>
+                  </label>
+                  <textarea
+                    name="message"
+                    value={formData.message}
+                    onChange={handleInputChange}
+                    placeholder="Describe your layout, venues, estimated guest count, or any custom expectations..."
+                    rows={4}
+                    className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans resize-none"
+                    required
+                  />
+                </div>
+
+                {/* Submissions feedback */}
+                {successMsg && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-lg flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{successMsg}</span>
+                  </div>
+                )}
+
+                {errorMsg && (
+                  <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-xs rounded-lg">
+                    {errorMsg}
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-5 py-3 rounded border border-zinc-200 hover:border-zinc-300 text-zinc-600 hover:text-luxury-black text-[10px] uppercase tracking-wider font-semibold transition-all cursor-pointer bg-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-3 rounded bg-black hover:bg-zinc-800 text-white font-semibold text-[10px] uppercase tracking-wider transition-all shadow-md flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Transmitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Submit Proposal</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
   return (
-    <section id="contact" className="relative py-28 md:py-36 bg-white text-luxury-black overflow-hidden border-t border-[#EAE3DB]">
-      
-      {/* Background Cinematic Lighting Details */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-[#C5A880]/15 via-transparent to-transparent blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-[#D9C4A9]/10 via-transparent to-transparent blur-[100px] pointer-events-none" />
+    <section id="contact" className="relative py-28 md:py-36 bg-white text-luxury-black overflow-hidden border-t border-zinc-200/50">
       
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         
@@ -151,38 +362,38 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-16 md:mb-24">
           <div className="lg:col-span-7 space-y-6">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] md:text-xs uppercase tracking-[0.4em] text-[#8E724F] font-semibold">
+              <span className="font-mono text-[10px] md:text-xs uppercase tracking-[0.4em] text-black font-semibold">
                 RESERVE THE MEMORY
               </span>
-              <div className="w-1.5 h-1.5 bg-[#8E724F] rounded-full" />
+              <div className="w-1.5 h-1.5 bg-black rounded-full" />
             </div>
 
-            <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl text-luxury-black tracking-wide font-light leading-tight">
+            <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl text-luxury-black tracking-wide font-bold leading-tight">
               Let's Co-Create Your <br />
-              <span className="text-[#8E724F] font-medium bg-gradient-to-r from-[#A3865E] via-[#8E724F] to-[#715A3D] bg-clip-text text-transparent">
+              <span className="text-black font-extrabold uppercase">
                 Cinematic Legacy
               </span>
             </h2>
 
-            <p className="text-zinc-600 font-sans text-xs sm:text-sm font-light leading-relaxed max-w-xl">
+            <p className="text-black font-sans text-xs sm:text-sm font-bold leading-relaxed max-w-xl">
               Due to our high-fidelity custom narrative style, we document only a select group of weddings and high-profile events annually. Secure your reservation console to verify availability.
             </p>
           </div>
 
           {/* Right Column: Stunning cinema camera visual with premium light borders */}
           <div className="lg:col-span-5 relative hidden lg:block">
-            <div className="absolute -inset-2 bg-gradient-to-r from-[#C5A880]/10 to-transparent rounded-lg blur-xl pointer-events-none" />
-            <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-[#E6DCD3] bg-white shadow-xl group">
+            <div className="absolute -inset-2 bg-gradient-to-r from-zinc-100/50 to-transparent rounded-lg blur-xl pointer-events-none" />
+            <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-zinc-200 bg-white shadow-xl group">
               <img
                 src="https://images.unsplash.com/photo-1601506521937-0121a7fc2a6b?q=80&w=1200&auto=format&fit=crop"
                 alt="Cinematic Camera Setup"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover opacity-95 group-hover:scale-105 transition-transform duration-[3s] ease-out"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#FAF8F5]/60 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute bottom-4 left-4 flex items-center space-x-2.5 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded border border-[#E6DCD3] shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-[#8E724F] animate-pulse" />
-                <span className="font-mono text-[9px] tracking-wider text-[#8E724F] font-semibold">LIVE FEED // 4K NARRATIVE RECORDING</span>
+              <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute bottom-4 left-4 flex items-center space-x-2.5 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded border border-zinc-200 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
+                <span className="font-mono text-[9px] tracking-wider text-black font-semibold">LIVE FEED // 4K NARRATIVE RECORDING</span>
               </div>
             </div>
           </div>
@@ -193,152 +404,163 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
           
           {/* 1. Studio Coordinates (Light Brown / Cream) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
+            initial={{ opacity: 1, y: 0 }}
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-sm hover:shadow-md hover:border-black"
           >
             <div className="flex items-center space-x-5">
-              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
+              <div className="relative w-14 h-14 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-black shadow-sm shrink-0">
                 <MapPin className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#8E724F] rounded-full" />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-black rounded-full" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">STUDIO COORDINATES</span>
-                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-black font-extrabold">STUDIO COORDINATES</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-black transition-colors mt-0.5 font-bold">
                   {locationVal}
                 </p>
-                <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
+                <p className="text-zinc-900 font-sans text-xs font-bold mt-0.5">
                   Bespoke studio space
                 </p>
               </div>
             </div>
             
-            {/* Elegant light-brown spinning element */}
-            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
-              <Globe className="w-10 h-10 text-[#8E724F] animate-[spin_50s_linear_infinite]" />
+            {/* Quick Action Buttons Row */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><MapPin className="w-3.5 h-3.5" /><span>Map</span></a>
+              </div>
+              <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 hidden sm:flex items-center pr-4">
+                <Globe className="w-10 h-10 text-zinc-400 animate-[spin_50s_linear_infinite]" />
+              </div>
             </div>
           </motion.div>
 
           {/* 2. Lead Creative Producer (Light Brown / Cream) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
+            initial={{ opacity: 1, y: 0 }}
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-sm hover:shadow-md hover:border-black"
           >
             <div className="flex items-center space-x-5">
-              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
+              <div className="relative w-14 h-14 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-black shadow-sm shrink-0">
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">LEAD CREATIVE PRODUCER</span>
-                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-black font-extrabold">LEAD CREATIVE PRODUCER</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-black transition-colors mt-0.5 font-bold">
                   {ownerVal}
                 </p>
-                <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
+                <p className="text-zinc-900 font-sans text-xs font-bold mt-0.5">
                   Director of Fine Art
                 </p>
               </div>
             </div>
             
-            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
-              <Tv className="w-9 h-9 text-[#8E724F]" />
+            {/* Quick Action Buttons Row */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={telLink} className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><Phone className="w-3.5 h-3.5" /><span>Call</span></a>
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><MessageCircle className="w-3.5 h-3.5" /><span>WhatsApp</span></a>
+              </div>
+              <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 hidden sm:flex items-center pr-4">
+                <Tv className="w-9 h-9 text-zinc-400" />
+              </div>
             </div>
           </motion.div>
 
           {/* 3. Electronic Transmissions (Light Brown / Cream) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
+            initial={{ opacity: 1, y: 0 }}
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-sm hover:shadow-md hover:border-black"
           >
-            <a href={`mailto:${emailVal}`} className="flex items-center space-x-5 flex-grow">
-              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
+            <div className="flex items-center space-x-5">
+              <div className="relative w-14 h-14 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-black shadow-sm shrink-0">
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">ELECTRONIC TRANSMISSIONS</span>
-                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light break-all">
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-black font-extrabold">ELECTRONIC TRANSMISSIONS</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-black transition-colors mt-0.5 font-bold break-all">
                   {emailVal}
                 </p>
-                <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
+                <p className="text-zinc-900 font-sans text-xs font-bold mt-0.5">
                   Average response: 4 Hours
                 </p>
               </div>
-            </a>
+            </div>
             
-            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
-              <Compass className="w-9 h-9 text-[#8E724F]" />
+            {/* Quick Action Buttons Row */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={mailLink} className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><Mail className="w-3.5 h-3.5" /><span>Mail</span></a>
+              </div>
+              <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 hidden sm:flex items-center pr-4">
+                <Compass className="w-9 h-9 text-zinc-400" />
+              </div>
             </div>
           </motion.div>
 
           {/* 4. Digital Narrative Index (Light Brown / Cream) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
+            initial={{ opacity: 1, y: 0 }}
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-sm hover:shadow-md hover:border-black"
           >
-            <a 
-              href="https://www.instagram.com/dreamytalesstudio?igsh=bTA2NjRnZXdzMWMy" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center space-x-5 flex-grow"
-            >
-              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
+            <div className="flex items-center space-x-5">
+              <div className="relative w-14 h-14 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-black shadow-sm shrink-0">
                 <Instagram className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">DIGITAL NARRATIVE INDEX</span>
-                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-black font-extrabold">DIGITAL NARRATIVE INDEX</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-black transition-colors mt-0.5 font-bold">
                   {instagramVal}
                 </p>
-                <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
+                <p className="text-zinc-900 font-sans text-xs font-bold mt-0.5">
                   Cinematic portfolio & updates
                 </p>
               </div>
-            </a>
+            </div>
             
-            <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 flex items-center pr-4">
-              <Sparkles className="w-9 h-9 text-[#8E724F]" />
+            {/* Quick Action Buttons Row */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={`https://instagram.com/${instagramVal.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><Instagram className="w-3.5 h-3.5" /><span>Instagram</span></a>
+              </div>
+              <div className="h-10 opacity-30 group-hover:opacity-55 transition-all duration-500 hidden sm:flex items-center pr-4">
+                <Sparkles className="w-9 h-9 text-zinc-400" />
+              </div>
             </div>
           </motion.div>
 
           {/* 5. Direct Voice Terminal (Light Brown / Cream) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="group relative overflow-hidden rounded-2xl border border-[#E8DFD5] bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-[0_4px_20px_rgba(142,114,79,0.03)] hover:shadow-[0_12px_32px_rgba(142,114,79,0.07)] hover:border-[#8E724F]/40"
+            initial={{ opacity: 1, y: 0 }}
+            className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-500 shadow-sm hover:shadow-md hover:border-black"
           >
-            <a href={`tel:${phoneVal}`} className="flex items-center space-x-5 flex-grow">
-              <div className="relative w-14 h-14 rounded-xl border border-[#EBDCCF] bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shadow-sm shrink-0">
+            <div className="flex items-center space-x-5">
+              <div className="relative w-14 h-14 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-black shadow-sm shrink-0">
                 <Phone className="w-5 h-5" />
               </div>
               <div>
-                <span className="block font-mono text-[9px] uppercase tracking-widest text-[#8E724F] font-bold">DIRECT VOICE TERMINAL</span>
-                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-[#8E724F] transition-colors mt-0.5 font-light">
+                <span className="block font-mono text-[9px] uppercase tracking-widest text-black font-extrabold">DIRECT VOICE TERMINAL</span>
+                <p className="font-serif text-lg sm:text-xl text-luxury-black group-hover:text-black transition-colors mt-0.5 font-bold">
                   {phoneVal}
                 </p>
-                <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
+                <p className="text-zinc-900 font-sans text-xs font-bold mt-0.5">
                   Priority scheduling lines
                 </p>
               </div>
-            </a>
+            </div>
             
-            {/* Elegant light-brown signal indicator */}
-            <div className="h-10 opacity-30 group-hover:opacity-60 transition-all duration-500 flex items-center pr-4 space-x-0.5">
-              <div className="w-[3px] h-6 bg-[#8E724F] rounded-full" />
-              <div className="w-[3px] h-9 bg-[#8E724F] rounded-full" />
-              <div className="w-[3px] h-7 bg-[#8E724F] rounded-full" />
-              <div className="w-[3px] h-4 bg-[#8E724F] rounded-full" />
+            {/* Quick Action Buttons Row */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={telLink} className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><Phone className="w-3.5 h-3.5" /><span>Call</span></a>
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><MessageCircle className="w-3.5 h-3.5" /><span>WhatsApp</span></a>
+              </div>
+              {/* Elegant light-brown signal indicator */}
+              <div className="h-10 opacity-30 group-hover:opacity-60 transition-all duration-500 hidden sm:flex items-center pr-4 space-x-0.5">
+                <div className="w-[3px] h-6 bg-black rounded-full" />
+                <div className="w-[3px] h-9 bg-black rounded-full" />
+                <div className="w-[3px] h-7 bg-black rounded-full" />
+                <div className="w-[3px] h-4 bg-black rounded-full" />
+              </div>
             </div>
           </motion.div>
 
@@ -346,21 +568,21 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
 
         {/* Bottom Banner inside light card */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
+          initial={{ opacity: 1, scale: 1 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="max-w-5xl mx-auto rounded-2xl border border-[#E6DCD3] bg-white p-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-[0_12px_45px_rgba(142,114,79,0.05)]"
+          className="max-w-5xl mx-auto rounded-2xl border border-zinc-200 bg-white p-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm"
         >
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded bg-[#FAF6F2] flex items-center justify-center text-[#8E724F] shrink-0 border border-[#E1D4C6]">
+            <div className="w-12 h-12 rounded bg-zinc-50 flex items-center justify-center text-black shrink-0 border border-zinc-200">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[#8E724F] font-serif text-sm font-semibold">
+              <p className="text-black font-serif text-sm font-bold">
                 Your story deserves to be told like a masterpiece.
               </p>
-              <p className="text-zinc-500 font-sans text-xs font-light mt-0.5">
+              <p className="text-zinc-900 font-sans text-xs font-bold mt-0.5">
                 Reserve your date now and let's create magic together.
               </p>
             </div>
@@ -368,7 +590,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-[#8E724F] hover:bg-[#715A3D] text-white font-semibold text-[10px] tracking-[0.2em] px-7 py-3.5 rounded uppercase transition-all duration-500 shadow-md inline-flex items-center space-x-2 shrink-0 cursor-pointer"
+            className="bg-black hover:bg-zinc-800 text-white font-semibold text-[10px] tracking-[0.2em] px-7 py-3.5 rounded uppercase transition-all duration-500 shadow-md inline-flex items-center space-x-2 shrink-0 cursor-pointer"
           >
             <span>CHECK AVAILABILITY</span>
             <span className="font-sans text-xs">→</span>
@@ -396,7 +618,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 30 }}
               transition={{ type: "spring", stiffness: 300, damping: 28 }}
-              className="relative w-full max-w-2xl bg-white border border-[#E6DCD3] rounded-2xl p-6 md:p-10 shadow-2xl z-10 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-2xl bg-white border border-zinc-200 rounded-2xl p-6 md:p-10 shadow-2xl z-10 max-h-[90vh] overflow-y-auto font-bold text-black"
             >
               {/* Close Button */}
               <button
@@ -409,11 +631,11 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
 
               <div className="mb-8 pr-8">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-[#8E724F] font-semibold">RESERVATION CONSOLE</span>
-                  <div className="w-1 h-1 bg-[#8E724F] rounded-full" />
+                  <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-black font-extrabold">RESERVATION CONSOLE</span>
+                  <div className="w-1 h-1 bg-black rounded-full" />
                 </div>
-                <h3 className="font-serif text-2xl md:text-3xl text-luxury-black font-light tracking-wide">Request Booking Availability</h3>
-                <p className="text-zinc-500 text-xs font-light mt-1">
+                <h3 className="font-serif text-2xl md:text-3xl text-luxury-black font-bold tracking-wide">Request Booking Availability</h3>
+                <p className="text-zinc-900 text-xs font-bold mt-1">
                   Share your celebration coordinates below for an absolute proposal.
                 </p>
               </div>
@@ -424,7 +646,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
                     <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Your Full Name <span className="text-[#8E724F]">*</span>
+                      Your Full Name <span className="text-black">*</span>
                     </label>
                     <input
                       type="text"
@@ -432,7 +654,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                       value={formData.clientName}
                       onChange={handleInputChange}
                       placeholder="Enter full name"
-                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
                       required
                     />
                   </div>
@@ -446,7 +668,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                       value={formData.partnerName}
                       onChange={handleInputChange}
                       placeholder="Enter partner name"
-                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
                     />
                   </div>
                 </div>
@@ -455,13 +677,13 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
                     <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Visual Package Category <span className="text-[#8E724F]">*</span>
+                      Visual Package Category <span className="text-black">*</span>
                     </label>
                     <select
                       name="eventType"
                       value={formData.eventType}
                       onChange={handleInputChange}
-                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans cursor-pointer"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans cursor-pointer"
                       required
                     >
                       {eventTypes.map((t) => (
@@ -473,14 +695,14 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Celebration Calendar Date <span className="text-[#8E724F]">*</span>
+                      Celebration Calendar Date <span className="text-black">*</span>
                     </label>
                     <input
                       type="date"
                       name="eventDate"
                       value={formData.eventDate}
                       onChange={handleInputChange}
-                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans cursor-pointer"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans cursor-pointer"
                       required
                     />
                   </div>
@@ -490,7 +712,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
                     <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Electronic Mail <span className="text-[#8E724F]">*</span>
+                      Electronic Mail <span className="text-black">*</span>
                     </label>
                     <input
                       type="email"
@@ -498,13 +720,13 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="email@example.com"
-                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
                       required
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                      Mobile Number <span className="text-[#8E724F]">*</span>
+                      Mobile Number <span className="text-black">*</span>
                     </label>
                     <input
                       type="tel"
@@ -512,7 +734,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="e.g. +91 99999 99999"
-                      className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans"
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans"
                       required
                     />
                   </div>
@@ -521,7 +743,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                 {/* Narrative Message */}
                 <div className="space-y-1.5">
                   <label className="block text-zinc-700 font-sans text-[10px] uppercase tracking-widest font-semibold">
-                    Narrative Details &amp; style dreams <span className="text-[#8E724F]">*</span>
+                    Narrative Details &amp; style dreams <span className="text-black">*</span>
                   </label>
                   <textarea
                     name="message"
@@ -529,7 +751,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                     onChange={handleInputChange}
                     rows={4}
                     placeholder="Describe your celebration, venue coordinates, flow, and visual preferences..."
-                    className="w-full bg-[#FDFBF9] border border-[#E1D4C6] hover:border-[#C5A880] rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-[#8E724F] focus:ring-1 focus:ring-[#8E724F] transition-all font-sans resize-none"
+                    className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 rounded px-4 py-3 text-xs text-luxury-black focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all font-sans resize-none"
                     required
                   />
                 </div>
@@ -564,18 +786,18 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                 </AnimatePresence>
 
                 {/* Form CTA Buttons */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-[#E6DCD3]">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-zinc-200">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-3 rounded border border-[#E6DCD3] hover:bg-zinc-50 text-zinc-700 font-mono text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+                    className="px-5 py-3 rounded border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-mono text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 py-3 rounded bg-[#8E724F] hover:bg-[#715A3D] text-white font-semibold text-[10px] uppercase tracking-wider transition-all shadow-md flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="px-6 py-3 rounded bg-black hover:bg-zinc-800 text-white font-semibold text-[10px] uppercase tracking-wider transition-all shadow-md flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {loading ? (
                       <>

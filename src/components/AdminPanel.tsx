@@ -63,6 +63,128 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
     }
   }, [alertMsg]);
 
+  const handlePhilosophySlidesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingSlide(true);
+    setUploadError("");
+
+    try {
+      const fileList = Array.from(files).filter(Boolean) as File[];
+      
+      // 1. Optimistic high-speed updates: create local blob URLs and show immediately
+      const optimisticSlides = fileList.map((file) => {
+        const localUrl = URL.createObjectURL(file);
+        const fName = file.name;
+        const extIndex = fName.lastIndexOf(".");
+        let rawName = extIndex !== -1 ? fName.substring(0, extIndex) : fName;
+        rawName = rawName.replace(/[-_]/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
+        const cleanTitle = rawName
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(" ")
+          .trim();
+
+        return {
+          id: `p-slide-temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          imageUrl: localUrl,
+          title: cleanTitle.toUpperCase(),
+          isOptimistic: true,
+          originalFile: file,
+        };
+      });
+
+      // Show them in the list instantly
+      setContent((prev) => {
+        const aboutObj = prev.about || {};
+        const currentSlides = aboutObj.philosophySlides || [];
+        return {
+          ...prev,
+          about: {
+            ...aboutObj,
+            philosophySlides: [...currentSlides, ...optimisticSlides.map(({ id, imageUrl, title }) => ({ id, imageUrl, title }))],
+          }
+        };
+      });
+
+      // 2. Perform background uploads in parallel for maximum speed
+      await Promise.all(
+        optimisticSlides.map(async (optSlide) => {
+          try {
+            const formData = new FormData();
+            formData.append("file", optSlide.originalFile);
+
+            const response = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const errResult = await response.json().catch(() => ({}));
+              throw new Error(errResult.error || `Upload failed for ${optSlide.originalFile.name}`);
+            }
+
+            const result = await response.json();
+            if (result.success && result.url) {
+              // Silently swap local blob URL with the real server URL in state
+              setContent((prev) => {
+                const aboutObj = prev.about || {};
+                const currentSlides = aboutObj.philosophySlides || [];
+                const updated = currentSlides.map((s) => {
+                  if (s && s.id === optSlide.id) {
+                    return {
+                      id: `p-slide-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                      imageUrl: result.url,
+                      title: s.title,
+                    };
+                  }
+                  return s;
+                });
+                return {
+                  ...prev,
+                  about: {
+                    ...aboutObj,
+                    philosophySlides: updated,
+                  }
+                };
+              });
+            } else {
+              throw new Error("Invalid server upload response.");
+            }
+          } catch (err: any) {
+            console.error("Single background upload error:", err);
+            // Revert this slide's addition on failure
+            setContent((prev) => {
+              const aboutObj = prev.about || {};
+              const currentSlides = aboutObj.philosophySlides || [];
+              const filtered = currentSlides.filter((s) => s && s.id !== optSlide.id);
+              return {
+                ...prev,
+                about: {
+                  ...aboutObj,
+                  philosophySlides: filtered,
+                }
+              };
+            });
+            setUploadError(err.message || `Failed to upload ${optSlide.originalFile.name}`);
+          } finally {
+            URL.revokeObjectURL(optSlide.imageUrl);
+          }
+        })
+      );
+
+      setAlertMsg({ type: "success", text: `Successfully processed ${optimisticSlides.length} image(s) with high speed.` });
+    } catch (err: any) {
+      console.error("Multi-upload process error:", err);
+      setUploadError(err.message || "Failed to process some or all uploads.");
+    } finally {
+      setUploadingSlide(false);
+      e.target.value = "";
+    }
+  };
+
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     target: "portfolio-media" | "portfolio-thumbnail" | "hero-video" | "about-photo" | "stats-bg" | "philosophy-slide" | "review-left" | "review-right" | "philosophy-bg"
@@ -72,13 +194,72 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
 
     setUploadError("");
 
-    // Increased safeguard check to 500 MB to easily accommodate high-resolution device photos and cinematic videos
+    // Safeguard check
     const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB limit
     if (file.size > MAX_FILE_SIZE) {
       setUploadError(
-        `File is too large (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a file smaller than 500 MB, or paste a direct web URL.`
+        `File is too large (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a file smaller than 500 MB.`
       );
       return;
+    }
+
+    // 1. Create a local optimistic blob URL for high speed instant feedback
+    const localUrl = URL.createObjectURL(file);
+    const fType = file.type || "";
+    const fName = file.name || "";
+    const isVideo = fType.startsWith("video/") || fName.endsWith(".mp4") || fName.endsWith(".webm") || fName.endsWith(".mov");
+
+    // Automatically extract user-friendly Title from filename
+    const extIndex = fName.lastIndexOf(".");
+    let rawName = extIndex !== -1 ? fName.substring(0, extIndex) : fName;
+    rawName = rawName.replace(/[-_]/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
+    const cleanTitle = rawName
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
+      .trim();
+
+    // 2. Optimistically update local UI states instantly!
+    if (target === "portfolio-thumbnail") {
+      setNewItem((prev) => ({ ...prev, thumbnail: localUrl }));
+    } else if (target === "review-left") {
+      setNewReview((prev) => ({ ...prev, leftImage: localUrl }));
+    } else if (target === "review-right") {
+      setNewReview((prev) => ({ ...prev, rightImage: localUrl }));
+    } else if (target === "portfolio-media") {
+      setNewItem((prev) => ({
+        ...prev,
+        mediaUrl: localUrl,
+        mediaType: isVideo ? "video" : "image",
+        title: cleanTitle,
+      }));
+    } else if (target === "hero-video") {
+      setContent((prev) => ({
+        ...prev,
+        hero: { ...prev.hero, videoUrl: localUrl },
+      }));
+    } else if (target === "about-photo") {
+      setContent((prev) => ({
+        ...prev,
+        about: { ...prev.about, photoUrl: localUrl },
+      }));
+    } else if (target === "philosophy-bg") {
+      setContent((prev) => ({
+        ...prev,
+        about: { ...prev.about, philosophyBgUrl: localUrl },
+      }));
+    } else if (target === "stats-bg") {
+      setContent((prev) => ({
+        ...prev,
+        stats: { ...prev.stats, backgroundUrl: localUrl },
+      }));
+    } else if (target === "philosophy-slide") {
+      setNewSlide((prev) => ({
+        ...prev,
+        imageUrl: localUrl,
+        title: prev.title || cleanTitle.toUpperCase(),
+      }));
     }
 
     if (target === "portfolio-media") setUploadingMedia(true);
@@ -92,154 +273,96 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
     else if (target === "review-right") setUploadingReviewRight(true);
 
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = reader.result as string;
-        try {
-          let uploadedUrl = "";
-          let success = false;
+      const formData = new FormData();
+      formData.append("file", file);
 
-          try {
-            const response = await fetch("/api/upload", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                fileName: file.name,
-                fileType: file.type,
-                fileData: base64Data,
-              }),
-            });
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-            if (response.ok) {
-              const result = await response.json();
-              if (result.success && result.url) {
-                uploadedUrl = result.url;
-                success = true;
-              }
-            } else {
-              if (response.status === 413) {
-                console.warn("File too large for server. Falling back to local Base64 storage.");
-              }
-            }
-          } catch (serverErr) {
-            console.warn("Server upload failed, using local Base64 fallback (ideal for Netlify static host):", serverErr);
-          }
+      if (!response.ok) {
+        const errResult = await response.json().catch(() => ({}));
+        throw new Error(errResult.error || "Server upload failed.");
+      }
 
-          // If server upload failed (e.g. Netlify 404 or local size limit), fall back to base64 Data URL!
-          if (!success) {
-            uploadedUrl = base64Data;
-            success = true;
-            console.log("Using local client-side storage for uploaded asset.");
-          }
+      const result = await response.json();
+      if (result.success && result.url) {
+        const uploadedUrl = result.url;
 
-          if (success && uploadedUrl) {
-            const fType = file?.type || "";
-            const fName = file?.name || "";
-
-            if (target === "portfolio-thumbnail") {
-              setNewItem((prev) => ({ ...prev, thumbnail: uploadedUrl }));
-            } else if (target === "review-left") {
-              setNewReview((prev) => ({ ...prev, leftImage: uploadedUrl }));
-            } else if (target === "review-right") {
-              setNewReview((prev) => ({ ...prev, rightImage: uploadedUrl }));
-            } else if (target === "portfolio-media") {
-              const isVideo = fType.startsWith("video/") || fName.endsWith(".mp4") || fName.endsWith(".webm") || fName.endsWith(".mov");
-              
-              // Automatically extract a user-friendly Title from the uploaded file's name!
-              const extIndex = fName.lastIndexOf(".");
-              let rawName = extIndex !== -1 ? fName.substring(0, extIndex) : fName;
-              
-              // Clean up underscores, hyphens, and split camelCase
-              rawName = rawName
-                .replace(/[-_]/g, " ")
-                .replace(/([a-z])([A-Z])/g, "$1 $2");
-              
-              // Capitalize first letter of each word
-              const cleanTitle = rawName
-                .split(/\s+/)
-                .filter(Boolean)
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(" ")
-                .trim();
-
-              setNewItem((prev) => ({
-                ...prev,
-                mediaUrl: uploadedUrl,
-                mediaType: isVideo ? "video" : "image",
-                title: cleanTitle,
-              }));
-            } else if (target === "hero-video") {
-              setContent((prev) => ({
-                ...prev,
-                hero: { ...prev.hero, videoUrl: uploadedUrl },
-              }));
-            } else if (target === "about-photo") {
-              setContent((prev) => ({
-                ...prev,
-                about: { ...prev.about, photoUrl: uploadedUrl },
-              }));
-            } else if (target === "philosophy-bg") {
-              setContent((prev) => ({
-                ...prev,
-                about: { ...prev.about, philosophyBgUrl: uploadedUrl },
-              }));
-            } else if (target === "stats-bg") {
-              setContent((prev) => ({
-                ...prev,
-                stats: { ...prev.stats, backgroundUrl: uploadedUrl },
-              }));
-            } else if (target === "philosophy-slide") {
-              const extIndex = fName.lastIndexOf(".");
-              let rawName = extIndex !== -1 ? fName.substring(0, extIndex) : fName;
-              rawName = rawName.replace(/[-_]/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
-              const cleanTitle = rawName
-                .split(/\s+/)
-                .filter(Boolean)
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(" ")
-                .trim();
-
-              setNewSlide((prev) => ({
-                ...prev,
-                imageUrl: uploadedUrl,
-                title: prev.title || cleanTitle.toUpperCase(),
-              }));
-            }
-          } else {
-            throw new Error("Unable to load asset content.");
-          }
-        } catch (err: any) {
-          console.error("Upload process error:", err);
-          setUploadError(err.message || "Failed to process asset upload.");
-        } finally {
-          if (target === "portfolio-media") setUploadingMedia(false);
-          else if (target === "portfolio-thumbnail") setUploadingThumbnail(false);
-          else if (target === "hero-video") setUploadingHero(false);
-          else if (target === "about-photo") setUploadingAbout(false);
-          else if (target === "philosophy-bg") setUploadingPhilosophyBg(false);
-          else if (target === "stats-bg") setUploadingStatsBg(false);
-          else if (target === "philosophy-slide") setUploadingSlide(false);
-          else if (target === "review-left") setUploadingReviewLeft(false);
-          else if (target === "review-right") setUploadingReviewRight(false);
+        // Swap the optimistic localUrl with the real server URL in state
+        if (target === "portfolio-thumbnail") {
+          setNewItem((prev) => ({ ...prev, thumbnail: prev.thumbnail === localUrl ? uploadedUrl : prev.thumbnail }));
+        } else if (target === "review-left") {
+          setNewReview((prev) => ({ ...prev, leftImage: prev.leftImage === localUrl ? uploadedUrl : prev.leftImage }));
+        } else if (target === "review-right") {
+          setNewReview((prev) => ({ ...prev, rightImage: prev.rightImage === localUrl ? uploadedUrl : prev.rightImage }));
+        } else if (target === "portfolio-media") {
+          setNewItem((prev) => ({ ...prev, mediaUrl: prev.mediaUrl === localUrl ? uploadedUrl : prev.mediaUrl }));
+        } else if (target === "hero-video") {
+          setContent((prev) => ({
+            ...prev,
+            hero: { ...prev.hero, videoUrl: prev.hero.videoUrl === localUrl ? uploadedUrl : prev.hero.videoUrl },
+          }));
+        } else if (target === "about-photo") {
+          setContent((prev) => ({
+            ...prev,
+            about: { ...prev.about, photoUrl: prev.about?.photoUrl === localUrl ? uploadedUrl : prev.about?.photoUrl },
+          }));
+        } else if (target === "philosophy-bg") {
+          setContent((prev) => ({
+            ...prev,
+            about: { ...prev.about, philosophyBgUrl: prev.about?.philosophyBgUrl === localUrl ? uploadedUrl : prev.about?.philosophyBgUrl },
+          }));
+        } else if (target === "stats-bg") {
+          setContent((prev) => ({
+            ...prev,
+            stats: { ...prev.stats, backgroundUrl: prev.stats?.backgroundUrl === localUrl ? uploadedUrl : prev.stats?.backgroundUrl },
+          }));
+        } else if (target === "philosophy-slide") {
+          setNewSlide((prev) => ({ ...prev, imageUrl: prev.imageUrl === localUrl ? uploadedUrl : prev.imageUrl }));
         }
-      };
-      reader.onerror = () => {
-        setUploadError("Failed to read file.");
-        if (target === "portfolio-media") setUploadingMedia(false);
-        else if (target === "portfolio-thumbnail") setUploadingThumbnail(false);
-        else if (target === "hero-video") setUploadingHero(false);
-        else if (target === "about-photo") setUploadingAbout(false);
-        else if (target === "philosophy-bg") setUploadingPhilosophyBg(false);
-        else if (target === "stats-bg") setUploadingStatsBg(false);
-        else if (target === "philosophy-slide") setUploadingSlide(false);
-        else if (target === "review-left") setUploadingReviewLeft(false);
-        else if (target === "review-right") setUploadingReviewRight(false);
-      };
-      reader.readAsDataURL(file);
+      } else {
+        throw new Error("Unable to load asset content.");
+      }
     } catch (err: any) {
-      setUploadError("Error processing file.");
+      console.error("Upload process error:", err);
+      setUploadError(err.message || "Failed to process asset upload.");
+
+      // Revert optimistic update on error
+      if (target === "portfolio-thumbnail") {
+        setNewItem((prev) => ({ ...prev, thumbnail: prev.thumbnail === localUrl ? "" : prev.thumbnail }));
+      } else if (target === "review-left") {
+        setNewReview((prev) => ({ ...prev, leftImage: prev.leftImage === localUrl ? "" : prev.leftImage }));
+      } else if (target === "review-right") {
+        setNewReview((prev) => ({ ...prev, rightImage: prev.rightImage === localUrl ? "" : prev.rightImage }));
+      } else if (target === "portfolio-media") {
+        setNewItem((prev) => ({ ...prev, mediaUrl: prev.mediaUrl === localUrl ? "" : prev.mediaUrl }));
+      } else if (target === "hero-video") {
+        setContent((prev) => ({
+          ...prev,
+          hero: { ...prev.hero, videoUrl: prev.hero.videoUrl === localUrl ? "" : prev.hero.videoUrl },
+        }));
+      } else if (target === "about-photo") {
+        setContent((prev) => ({
+          ...prev,
+          about: { ...prev.about, photoUrl: prev.about?.photoUrl === localUrl ? "" : prev.about?.photoUrl },
+        }));
+      } else if (target === "philosophy-bg") {
+        setContent((prev) => ({
+          ...prev,
+          about: { ...prev.about, philosophyBgUrl: prev.about?.philosophyBgUrl === localUrl ? "" : prev.about?.philosophyBgUrl },
+        }));
+      } else if (target === "stats-bg") {
+        setContent((prev) => ({
+          ...prev,
+          stats: { ...prev.stats, backgroundUrl: prev.stats?.backgroundUrl === localUrl ? "" : prev.stats?.backgroundUrl },
+        }));
+      } else if (target === "philosophy-slide") {
+        setNewSlide((prev) => ({ ...prev, imageUrl: prev.imageUrl === localUrl ? "" : prev.imageUrl }));
+      }
+    } finally {
+      URL.revokeObjectURL(localUrl);
       if (target === "portfolio-media") setUploadingMedia(false);
       else if (target === "portfolio-thumbnail") setUploadingThumbnail(false);
       else if (target === "hero-video") setUploadingHero(false);
@@ -249,12 +372,13 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       else if (target === "philosophy-slide") setUploadingSlide(false);
       else if (target === "review-left") setUploadingReviewLeft(false);
       else if (target === "review-right") setUploadingReviewRight(false);
+      e.target.value = "";
     }
   };
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "admin") {
+    if (password === "gyanuverma") {
       setIsAuthenticated(true);
       fetchInquiries();
     } else {
@@ -336,11 +460,14 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
     }));
   };
 
-  const handleAboutChange = (field: keyof typeof content.about, value: string) => {
-    setContent((prev) => ({
-      ...prev,
-      about: { ...prev.about, [field]: value },
-    }));
+  const handleAboutChange = (field: any, value: string) => {
+    setContent((prev) => {
+      const aboutObj = prev.about || {};
+      return {
+        ...prev,
+        about: { ...aboutObj, [field]: value },
+      };
+    });
   };
 
   const handleServiceChange = (id: string, field: keyof ServiceItem, value: any) => {
@@ -446,7 +573,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
           <form onSubmit={handleAuth} className="space-y-4">
             <div>
               <label className="block text-zinc-600 text-xs font-sans tracking-wider mb-2 font-medium">
-                Enter Administration Code (Use: <span className="text-gold-dark font-semibold">admin</span>)
+                Enter Administration Code (Use: <span className="text-gold-dark font-semibold">gyanuverma</span>)
               </label>
               <input
                 type="password"
@@ -539,10 +666,10 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
             <button
               onClick={handleSaveChanges}
               disabled={saving}
-              className="flex-grow sm:flex-grow-0 px-4 py-2 bg-gold hover:bg-gold-light disabled:bg-gold/50 text-luxury-black font-semibold rounded text-[10px] md:text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 shadow-lg shadow-gold/10 hover:shadow-gold/20 cursor-pointer"
+              className="flex-grow sm:flex-grow-0 px-4 py-2 bg-black hover:bg-zinc-800 disabled:bg-zinc-600 text-white font-semibold rounded text-[10px] md:text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 shadow-lg cursor-pointer border border-white/15"
             >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              <span>Save Live Changes</span>
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Save className="w-3.5 h-3.5 text-white" />}
+              <span className="text-white">Save Live Changes</span>
             </button>
           </div>
         </div>
@@ -706,7 +833,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                     <label className="block text-zinc-500 text-[10px] uppercase tracking-wider mb-2 font-semibold">Story Headline</label>
                     <input
                       type="text"
-                      value={content.about.storyHeadline}
+                      value={content.about?.storyHeadline || ""}
                       onChange={(e) => handleAboutChange("storyHeadline", e.target.value)}
                       className="w-full bg-white border border-zinc-200 rounded px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold"
                     />
@@ -716,7 +843,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                     <div className="flex items-center">
                       <input
                         type="text"
-                        value={content.about.photoUrl}
+                        value={content.about?.photoUrl || ""}
                         onChange={(e) => handleAboutChange("photoUrl", e.target.value)}
                         className="w-full bg-white border border-zinc-200 rounded-l px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold font-mono min-w-0"
                       />
@@ -745,7 +872,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                     <div className="flex items-center">
                       <input
                         type="text"
-                        value={content.about.philosophyBgUrl || ""}
+                        value={content.about?.philosophyBgUrl || ""}
                         onChange={(e) => handleAboutChange("philosophyBgUrl", e.target.value)}
                         placeholder="Paste image URL here"
                         className="w-full bg-white border border-zinc-200 rounded-l px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold font-mono min-w-0"
@@ -770,7 +897,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                   <div>
                     <label className="block text-zinc-500 text-[10px] uppercase tracking-wider mb-2 font-semibold">Story Description Introduction</label>
                     <textarea
-                      value={content.about.storyDescription}
+                      value={content.about?.storyDescription || ""}
                       onChange={(e) => handleAboutChange("storyDescription", e.target.value)}
                       rows={2}
                       className="w-full bg-white border border-zinc-200 rounded px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold"
@@ -784,7 +911,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                     Manage Our Philosophy Sliding Catalog (Multiple Images & Titles)
                   </h4>
                   <p className="text-[10px] text-zinc-400 mb-5 font-medium uppercase tracking-wider">
-                    💡 Each image added here appears in the sliding gallery of the "OUR PHILOSOPHY" section. Give each image an awesome custom title!
+                    💡 Each image added here appears in the sliding gallery of the "OUR PHILOSOPHY" section. Give each image an awesome custom title! You can now select and upload multiple files at once.
                   </p>
 
                   {/* Form to insert new slide */}
@@ -826,7 +953,8 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                             id="p-slide-upload"
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleFileUpload(e, "philosophy-slide")}
+                            multiple
+                            onChange={handlePhilosophySlidesUpload}
                             className="sr-only"
                           />
                         </div>
@@ -846,11 +974,12 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                               title: slideTitle.toUpperCase(),
                             };
                             setContent((prev) => {
-                              const slides = prev.about.philosophySlides || [];
+                              const aboutObj = prev.about || {};
+                              const slides = aboutObj.philosophySlides || [];
                               return {
                                 ...prev,
                                 about: {
-                                  ...prev.about,
+                                  ...aboutObj,
                                   philosophySlides: [...slides, newSlideItem],
                                 }
                               };
@@ -869,62 +998,67 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                   {/* List of current slides */}
                   <div className="space-y-3 max-h-[380px] overflow-y-auto pr-2 custom-scrollbar">
                     <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold block">
-                      Current Slides in Philosophy Catalog ({content.about.philosophySlides?.length || 0})
+                      Current Slides in Philosophy Catalog ({content.about?.philosophySlides?.length || 0})
                     </span>
-                    {(!content.about.philosophySlides || content.about.philosophySlides.length === 0) ? (
+                    {(!content.about?.philosophySlides || content.about.philosophySlides.length === 0) ? (
                       <p className="text-xs text-zinc-400 italic">No custom slides added yet. The system will fall back to showing the main Story Thumbnail.</p>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {content.about.philosophySlides.map((slide, sIdx) => (
-                          <div key={slide.id || sIdx} className="flex gap-3 bg-white border border-zinc-200/80 p-2.5 rounded-lg shadow-sm items-center relative group">
-                            <div className="w-14 h-14 rounded overflow-hidden bg-zinc-50 shrink-0 border border-zinc-100">
-                              <img src={slide.imageUrl} alt={slide.title} className="w-full h-full object-cover" />
-                            </div>
-                            <div className="flex-grow min-w-0">
-                              <label className="block text-[8px] text-zinc-400 uppercase tracking-wider mb-0.5 font-bold">Slide Title</label>
-                              <input
-                                type="text"
-                                value={slide.title}
-                                onChange={(e) => {
-                                  const val = e.target.value.toUpperCase();
+                        {(content.about?.philosophySlides || []).map((slide, sIdx) => {
+                          if (!slide) return null;
+                          return (
+                            <div key={slide.id || sIdx} className="flex gap-3 bg-white border border-zinc-200/80 p-2.5 rounded-lg shadow-sm items-center relative group">
+                              <div className="w-14 h-14 rounded overflow-hidden bg-zinc-50 shrink-0 border border-zinc-100">
+                                <img src={slide.imageUrl} alt={slide.title} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex-grow min-w-0">
+                                <label className="block text-[8px] text-zinc-400 uppercase tracking-wider mb-0.5 font-bold">Slide Title</label>
+                                <input
+                                  type="text"
+                                  value={slide.title}
+                                  onChange={(e) => {
+                                    const val = e.target.value.toUpperCase();
+                                    setContent((prev) => {
+                                      const aboutObj = prev.about || {};
+                                      const slides = aboutObj.philosophySlides || [];
+                                      const updated = slides.map((s) => s && s.id === slide.id ? { ...s, title: val } : s);
+                                      return {
+                                        ...prev,
+                                        about: {
+                                          ...aboutObj,
+                                          philosophySlides: updated,
+                                        }
+                                      };
+                                    });
+                                  }}
+                                  placeholder="SLIDE TITLE"
+                                  className="w-full bg-transparent border-b border-zinc-200 focus:border-gold text-xs text-luxury-black py-0.5 font-medium uppercase outline-none"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
                                   setContent((prev) => {
-                                    const slides = prev.about.philosophySlides || [];
-                                    const updated = slides.map((s) => s.id === slide.id ? { ...s, title: val } : s);
+                                    const aboutObj = prev.about || {};
+                                    const slides = aboutObj.philosophySlides || [];
+                                    const filtered = slides.filter((s) => s && s.id !== slide.id);
                                     return {
                                       ...prev,
                                       about: {
-                                        ...prev.about,
-                                        philosophySlides: updated,
+                                        ...aboutObj,
+                                        philosophySlides: filtered,
                                       }
                                     };
                                   });
                                 }}
-                                placeholder="SLIDE TITLE"
-                                className="w-full bg-transparent border-b border-zinc-200 focus:border-gold text-xs text-luxury-black py-0.5 font-medium uppercase outline-none"
-                              />
+                                className="p-2 hover:bg-red-50 hover:text-red-600 rounded text-zinc-400 transition-colors self-center shrink-0 cursor-pointer"
+                                title="Delete Slide"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setContent((prev) => {
-                                  const slides = prev.about.philosophySlides || [];
-                                  const filtered = slides.filter((s) => s.id !== slide.id);
-                                  return {
-                                    ...prev,
-                                    about: {
-                                      ...prev.about,
-                                      philosophySlides: filtered,
-                                    }
-                                  };
-                                });
-                              }}
-                              className="p-2 hover:bg-red-50 hover:text-red-600 rounded text-zinc-400 transition-colors self-center shrink-0 cursor-pointer"
-                              title="Delete Slide"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1170,7 +1304,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
 
             {/* Row 6: Client Reviews manager */}
             <div className="bg-white border border-zinc-200 p-6 rounded-lg shadow-sm">
-              <h3 className="font-serif text-xl text-luxury-black mb-6 border-b border-zinc-200 pb-3">6. Client Praise Testimonials</h3>
+              <h3 className="font-serif text-xl text-luxury-black mb-6 border-b border-zinc-200 pb-3">6. Client Reviews Testimonials</h3>
 
               {/* Form to insert new review */}
               <div className="bg-zinc-50 p-5 rounded-lg border border-zinc-200 mb-8 shadow-inner">
@@ -1458,10 +1592,10 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                 type="button"
                 onClick={handleSaveChanges}
                 disabled={saving}
-                className="w-full sm:w-auto px-6 py-3 bg-gold hover:bg-gold-light disabled:bg-gold/50 text-luxury-black font-semibold rounded text-xs uppercase tracking-widest transition-all flex items-center justify-center space-x-2 shadow-md hover:shadow-lg cursor-pointer"
+                className="w-full sm:w-auto px-6 py-3 bg-black hover:bg-zinc-800 disabled:bg-zinc-600 text-white font-semibold rounded text-xs uppercase tracking-widest transition-all flex items-center justify-center space-x-2 shadow-md hover:shadow-lg cursor-pointer border border-zinc-700"
               >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>Save Live Changes</span>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Save className="w-4 h-4 text-white" />}
+                <span className="text-white font-bold">Save Live Changes</span>
               </button>
             </div>
 

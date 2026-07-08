@@ -4,6 +4,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { StudioContent, Inquiry } from "./src/types.js";
+import multer from "multer";
 
 const app = express();
 const PORT = 3000;
@@ -199,30 +200,109 @@ const writeInquiries = (inquiries: Inquiry[]) => {
 
 // --- API Endpoints ---
 
+// Configure multer storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, "_");
+    cb(null, `${baseName}_${Date.now()}${ext}`);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 500 * 1024 * 1024 } // 500MB
+});
+
 // Upload endpoint for files from local device
-app.post("/api/upload", (req, res) => {
+app.post("/api/upload", upload.single("file"), (req, res) => {
   try {
-    const { fileName, fileType, fileData } = req.body;
-    if (!fileName || !fileData) {
-      return res.status(400).json({ error: "Missing file name or file data." });
+    // 1. Check if standard multipart/form-data upload was used
+    if (req.file) {
+      return res.json({
+        success: true,
+        url: `/uploads/${req.file.filename}`,
+      });
     }
 
-    const base64Data = fileData.replace(/^data:.*?;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
+    // 2. Fallback to base64 body if sent as JSON
+    const { fileName, fileType, fileData } = req.body || {};
+    if (fileName && fileData) {
+      const base64Data = fileData.replace(/^data:.*?;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
 
-    const ext = path.extname(fileName) || (fileType && fileType.split("/")[1] ? `.${fileType.split("/")[1]}` : "");
-    const baseName = path.basename(fileName, ext).replace(/[^a-zA-Z0-9]/g, "_");
-    const uniqueFileName = `${baseName}_${Date.now()}${ext}`;
-    const filePath = path.join(UPLOADS_DIR, uniqueFileName);
+      const ext = path.extname(fileName) || (fileType && fileType.split("/")[1] ? `.${fileType.split("/")[1]}` : "");
+      const baseName = path.basename(fileName, ext).replace(/[^a-zA-Z0-9]/g, "_");
+      const uniqueFileName = `${baseName}_${Date.now()}${ext}`;
+      const filePath = path.join(UPLOADS_DIR, uniqueFileName);
 
-    fs.writeFileSync(filePath, buffer);
+      fs.writeFileSync(filePath, buffer);
 
-    res.json({
-      success: true,
-      url: `/uploads/${uniqueFileName}`,
-    });
+      return res.json({
+        success: true,
+        url: `/uploads/${uniqueFileName}`,
+      });
+    }
+
+    return res.status(400).json({ error: "No file uploaded or missing data." });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to upload file." });
+  }
+});
+
+// Get website dynamic content
+app.get("/api/samaro-gallery", async (req, res) => {
+  try {
+    const url = "https://events.samaro.ai/pybackend/app/events/aarushi-edit/public-data/";
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch from Samaro API. Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawPhotos = data?.data?.media?.photos || [];
+
+    // Map to standard PortfolioItem structure
+    const mappedItems = rawPhotos.map((photo: any) => {
+      let title = "Aarushi & Edit's Ceremony";
+      if (photo.filename) {
+        let cleanName = decodeURIComponent(photo.filename)
+          .replace(/_edited_[a-f0-9]+.*$/gi, "") // clean edited suffixes
+          .replace(/\.[a-zA-Z0-9]+$/g, "")      // clean file extension
+          .replace(/WhatsApp Image \d{4}-\d{2}-\d{2} at \d{2}\.\d{2}\.\d{2}/gi, "") // clean WhatsApp date pattern
+          .replace(/_/g, " ")                    // underscores to space
+          .trim();
+        
+        if (cleanName) {
+          // Capitalize words beautifully
+          title = cleanName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+        } else {
+          title = "Candid Ritual Moment";
+        }
+      }
+
+      return {
+        id: `samaro-${photo.id || photo.media_id}`,
+        title: title,
+        category: photo.height > photo.width ? "Candid" : "Photography",
+        mediaType: "image",
+        mediaUrl: photo.media_url,
+        thumbnail: photo.mobile_url?.url || photo.media_url,
+      };
+    });
+
+    res.json({ success: true, items: mappedItems });
+  } catch (err: any) {
+    console.error("Failed to fetch samaro gallery:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to load external gallery" });
   }
 });
 

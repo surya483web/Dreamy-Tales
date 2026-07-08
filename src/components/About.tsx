@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import { AboutSection, StudioDetails } from "../types";
 
 interface AboutProps {
@@ -7,72 +6,177 @@ interface AboutProps {
   details?: StudioDetails;
 }
 
-export default function About({ about, details }: AboutProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isMobile, setIsMobile] = useState(true);
-  const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [currentDragOffset, setCurrentDragOffset] = useState(0);
-  const hasDragged = useRef(false);
-  const isAnimatingRef = useRef(false);
-  const trackRef = useRef<HTMLDivElement>(null);
+const defaultSlides = [
+  {
+    id: "fs-1",
+    imageUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200",
+    title: "THE RAJPUTANA GLORY"
+  },
+  {
+    id: "fs-2",
+    imageUrl: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=1200",
+    title: "GOLDEN HOUR WHISPERS"
+  },
+  {
+    id: "fs-3",
+    imageUrl: "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=1200",
+    title: "CANDID EMOTIONS"
+  },
+  {
+    id: "fs-4",
+    imageUrl: "https://images.unsplash.com/photo-1519225495810-7512c696505a?auto=format&fit=crop&q=80&w=1200",
+    title: "THE ROYAL CANVAS"
+  }
+];
 
+export default function About({ about }: AboutProps) {
+  const safePhilosophySlides = about?.philosophySlides;
+  const slides = safePhilosophySlides && safePhilosophySlides.length > 0 
+    ? safePhilosophySlides 
+    : defaultSlides;
+
+  const N = slides.length;
+
+  // Duplicate slides list to implement seamless infinite looping
+  const extendedSlides = [...slides, ...slides, ...slides];
+
+  // Start at the middle set
+  const [extendedIndex, setExtendedIndex] = useState(N);
+  const targetIndexRef = useRef(N);
+  const loopTimeoutRef = useRef<any>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+  const [isRevealed, setIsRevealed] = useState(false);
+
+  const sectionRef = useRef<HTMLElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const trackDivRef = useRef<HTMLDivElement>(null);
+  const isAnimatingRef = useRef(false);
+
+  // Drag tracking refs
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
+  const currentXRef = useRef(0);
+  const dragOffsetRef = useRef(0);
+  const trackXRef = useRef(0);
+  const isHorizontalSwipe = useRef<boolean | null>(null);
+
+  // Responsive sizes
+  let slideWidth = windowWidth * 0.82; // Center image width on mobile
+  let gap = 12;
+
+  if (windowWidth >= 1024) {
+    slideWidth = windowWidth * 0.60;
+    gap = 24;
+  } else if (windowWidth >= 768) {
+    slideWidth = windowWidth * 0.70;
+    gap = 16;
+  }
+
+  const centerOffset = (windowWidth / 2) - (slideWidth / 2);
+  const slideHeight = slideWidth * 1.35; // Portrait orientation
+  const targetX = centerOffset - extendedIndex * (slideWidth + gap);
+
+  // Track window resize
   useEffect(() => {
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
-      setIsMobile(window.innerWidth < 768);
     };
-    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const safePhilosophySlides = about?.philosophySlides;
-
-  const slides = safePhilosophySlides && safePhilosophySlides.length > 0 
-    ? safePhilosophySlides 
-    : [
-        {
-          id: "default-1",
-          imageUrl: about?.photoUrl || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200",
-          title: "SIGNATURE WORK"
-        }
-      ];
-
-  // Adjust current slide index if slides array shrinks or updates
+  // Intersection observer for viewport reveal
   useEffect(() => {
-    if (currentIndex >= slides.length) {
-      setCurrentIndex(0);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsRevealed(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
     }
-  }, [slides, currentIndex]);
+    return () => observer.disconnect();
+  }, []);
 
-  // Preload all images to avoid blank frames or flickering
+  // Preload ALL slides on mount so they come very quickly with zero latency
   useEffect(() => {
     slides.forEach((slide) => {
-      if (slide.imageUrl) {
+      if (slide && slide.imageUrl) {
         const img = new Image();
         img.src = slide.imageUrl;
       }
     });
   }, [slides]);
 
-  const nextSlide = () => {
-    if (isAnimatingRef.current) return;
+  // Clean up any pending loop timeouts
+  useEffect(() => {
+    return () => {
+      if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current);
+    };
+  }, []);
+
+  const scrollToIndex = (index: number, animate = true) => {
+    if (isDraggingRef.current) return;
     isAnimatingRef.current = true;
-    setCurrentIndex((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-    setTimeout(() => {
+    targetIndexRef.current = index;
+    setExtendedIndex(index);
+
+    if (trackDivRef.current) {
+      if (animate) {
+        trackDivRef.current.style.transition = "transform 320ms cubic-bezier(0.16, 1, 0.3, 1)";
+      } else {
+        trackDivRef.current.style.transition = "none";
+      }
+      const newX = centerOffset - index * (slideWidth + gap);
+      trackDivRef.current.style.transform = `translate3d(${newX}px, 0, 0)`;
+
+      // If transition is instant, update slide transforms directly
+      if (!animate) {
+        updateSlideTransforms(newX);
+      }
+    }
+
+    if (animate) {
+      if (loopTimeoutRef.current) {
+        clearTimeout(loopTimeoutRef.current);
+      }
+      loopTimeoutRef.current = setTimeout(() => {
+        isAnimatingRef.current = false;
+        handleLoopBoundaries(index);
+      }, 320);
+    } else {
       isAnimatingRef.current = false;
-    }, 600);
+      handleLoopBoundaries(index);
+    }
+  };
+
+  const handleLoopBoundaries = (index: number) => {
+    if (index < N) {
+      targetIndexRef.current = index + N;
+      scrollToIndex(index + N, false);
+    } else if (index >= 2 * N) {
+      targetIndexRef.current = index - N;
+      scrollToIndex(index - N, false);
+    }
+  };
+
+  const nextSlide = () => {
+    if (isDraggingRef.current) return;
+    const nextIdx = targetIndexRef.current + 1;
+    scrollToIndex(nextIdx);
   };
 
   const prevSlide = () => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
-    setCurrentIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-    setTimeout(() => {
-      isAnimatingRef.current = false;
-    }, 600);
+    if (isDraggingRef.current) return;
+    const prevIdx = targetIndexRef.current - 1;
+    scrollToIndex(prevIdx);
   };
 
   const nextSlideRef = useRef(nextSlide);
@@ -83,274 +187,320 @@ export default function About({ about, details }: AboutProps) {
     prevSlideRef.current = prevSlide;
   });
 
-  // Autoplay effect to naturally swipe slides with stable ref calling
+  // Keyboard navigation support
   useEffect(() => {
-    if (isDragging || slides.length <= 1) return;
-    const interval = setInterval(() => {
-      nextSlideRef.current();
-    }, 2000); // Transitions beautifully every 2 seconds
-    return () => clearInterval(interval);
-  }, [isDragging, slides.length]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        prevSlideRef.current();
+      } else if (e.key === "ArrowRight") {
+        nextSlideRef.current();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
-  // Support trackpad/mouse-wheel horizontal and vertical scrolling gestures
+  const handleImageLoad = (url: string) => {
+    setLoadedImages((prev) => ({ ...prev, [url]: true }));
+  };
+
+  // High performance touch/drag mechanics using direct DOM transform writes
+  const handleTouchStart = (e: TouchEvent | MouseEvent) => {
+    if (isAnimatingRef.current) return;
+    isDraggingRef.current = true;
+    setIsDragging(true);
+
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+    startXRef.current = clientX;
+    startYRef.current = clientY;
+    currentXRef.current = clientX;
+    dragOffsetRef.current = 0;
+    trackXRef.current = centerOffset - extendedIndex * (slideWidth + gap);
+    isHorizontalSwipe.current = null;
+
+    if (trackDivRef.current) {
+      trackDivRef.current.style.transition = "none";
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent | MouseEvent) => {
+    if (!isDraggingRef.current) return;
+
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+    if (isHorizontalSwipe.current === null) {
+      const dx = Math.abs(clientX - startXRef.current);
+      const dy = Math.abs(clientY - startYRef.current);
+      if (dx > 5 || dy > 5) {
+        isHorizontalSwipe.current = dx > dy;
+      }
+    }
+
+    if (isHorizontalSwipe.current === false) {
+      return;
+    }
+
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
+    currentXRef.current = clientX;
+    const deltaX = clientX - startXRef.current;
+    dragOffsetRef.current = deltaX;
+
+    const newX = trackXRef.current + deltaX;
+    if (trackDivRef.current) {
+      trackDivRef.current.style.transform = `translate3d(${newX}px, 0, 0)`;
+    }
+
+    // Direct DOM manipulation of scale and opacity for 60fps drag visuals
+    updateSlideTransforms(newX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    const dragOffset = dragOffsetRef.current;
+    const swipeThreshold = 15; // Ultra-responsive flick threshold
+
+    let newIndex = extendedIndex;
+    if (dragOffset < -swipeThreshold) {
+      newIndex = extendedIndex + 1;
+    } else if (dragOffset > swipeThreshold) {
+      newIndex = extendedIndex - 1;
+    }
+
+    targetIndexRef.current = newIndex;
+    scrollToIndex(newIndex);
+  };
+
+  const updateSlideTransforms = (currentTrackX: number) => {
+    if (!trackDivRef.current) return;
+    const slidesElements = trackDivRef.current.children;
+    for (let i = 0; i < slidesElements.length; i++) {
+      const el = slidesElements[i] as HTMLDivElement;
+      if (!el) continue;
+
+      const slideCenter = currentTrackX + i * (slideWidth + gap) + slideWidth / 2;
+      const distance = Math.abs(slideCenter - windowWidth / 2);
+      const normalizedDistance = Math.min(2, distance / (slideWidth + gap));
+
+      let scale = 1;
+      let opacity = 1;
+
+      if (normalizedDistance <= 1) {
+        scale = 1 - normalizedDistance * (1 - 0.92);
+        opacity = 1 - normalizedDistance * (1 - 0.55);
+      } else {
+        const t = normalizedDistance - 1;
+        scale = 0.92 - t * (0.92 - 0.85);
+        opacity = 0.55 - t * (0.55 - 0.35);
+      }
+
+      el.style.opacity = opacity.toString();
+      el.style.setProperty("--slide-scale", scale.toString());
+
+      const imgContainer = el.querySelector(".img-container") as HTMLDivElement;
+      if (imgContainer) {
+        imgContainer.style.transform = `scale(${scale})`;
+      }
+    }
+  };
+
+  // Bind mouse/touch events to the track
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
 
-    const handleWheel = (e: WheelEvent) => {
-      const threshold = 15;
-      // If we scroll horizontally or vertically on the track, slide images
-      if (Math.abs(e.deltaX) > threshold) {
-        e.preventDefault();
-        if (isAnimatingRef.current) return;
-        if (e.deltaX > 0) {
-          nextSlideRef.current();
-        } else {
-          prevSlideRef.current();
-        }
-      } else if (Math.abs(e.deltaY) > threshold) {
-        e.preventDefault();
-        if (isAnimatingRef.current) return;
-        if (e.deltaY > 0) {
-          nextSlideRef.current();
-        } else {
-          prevSlideRef.current();
-        }
-      }
-    };
+    const onTouchStart = (e: TouchEvent) => handleTouchStart(e);
+    const onMouseDown = (e: MouseEvent) => handleTouchStart(e);
 
-    track.addEventListener("wheel", handleWheel, { passive: false });
+    track.addEventListener("touchstart", onTouchStart, { passive: true });
+    track.addEventListener("mousedown", onMouseDown);
+
     return () => {
-      track.removeEventListener("wheel", handleWheel);
+      track.removeEventListener("touchstart", onTouchStart);
+      track.removeEventListener("mousedown", onMouseDown);
     };
-  }, []);
+  }, [extendedIndex, windowWidth, slideWidth, gap]);
 
-  // Unified drag/touch handlers
-  const handleDragStart = (clientX: number) => {
-    setIsDragging(true);
-    setStartX(clientX);
-    setCurrentDragOffset(0);
-    hasDragged.current = false;
-  };
-
-  const handleDragMove = (clientX: number) => {
+  // Bind drag events globally while active
+  useEffect(() => {
     if (!isDragging) return;
-    const offset = clientX - startX;
-    setCurrentDragOffset(offset);
-    if (Math.abs(offset) > 20) {
-      hasDragged.current = true;
-    }
-  };
 
-  const handleDragEnd = () => {
-    if (!isDragging) return;
-    
-    const threshold = 60; // 60px swipe threshold
-    if (currentDragOffset < -threshold) {
-      nextSlide();
-    } else if (currentDragOffset > threshold) {
-      prevSlide();
-    }
+    const onTouchMove = (e: TouchEvent) => handleTouchMove(e);
+    const onMouseMove = (e: MouseEvent) => handleTouchMove(e);
+    const onTouchEnd = () => handleTouchEnd();
+    const onMouseUp = () => handleTouchEnd();
 
-    setIsDragging(false);
-    setCurrentDragOffset(0);
-  };
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("mouseup", onMouseUp);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    handleDragStart(e.touches[0].clientX);
-  };
+    return () => {
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDragging, extendedIndex, windowWidth, slideWidth, gap]);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    handleDragMove(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = () => {
-    handleDragEnd();
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Only drag with left click
-    handleDragStart(e.clientX);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    handleDragMove(e.clientX);
-  };
-
-  const handleMouseUp = () => {
-    handleDragEnd();
-  };
-
-  const handleMouseLeave = () => {
-    if (isDragging) {
-      handleDragEnd();
-    }
-  };
-
-  // Calculate standard translation to show exactly the single active slide with dragging offset
-  const translateX = `calc(-${currentIndex * 100}% + ${currentDragOffset}px)`;
+  const normalizedIndex = extendedIndex % N;
 
   return (
-    <section id="story" className="relative py-20 md:py-28 bg-white overflow-hidden border-t border-zinc-200/40">
-      
-      {/* Decorative architectural layout grids */}
-      <div className="absolute top-12 left-12 w-32 h-32 border-l border-t border-zinc-200/50 pointer-events-none" />
-      <div className="absolute bottom-12 right-12 w-32 h-32 border-r border-b border-zinc-200/50 pointer-events-none" />
+    <section 
+      ref={sectionRef}
+      id="story" 
+      className="w-full bg-white py-20 md:py-32 overflow-hidden select-none relative"
+    >
+      <style>{`
+        @keyframes activeFloat {
+          0%, 100% { transform: translateY(-4px); }
+          50% { transform: translateY(4px); }
+        }
+        .active-floating {
+          animation: activeFloat 8s ease-in-out infinite;
+        }
+        .carousel-slide {
+          transition: opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
+          will-change: opacity, transform;
+        }
+        .img-container {
+          transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+          will-change: transform;
+        }
+      `}</style>
 
-      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10 mb-10">
-        <span className="font-sans text-[10px] md:text-xs uppercase tracking-[0.5em] text-gold-dark mb-3 block font-semibold text-center md:text-left">
-          Our Philosophy
-        </span>
-        <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl text-luxury-black tracking-wide font-normal leading-tight max-w-2xl text-center md:text-left">
-          {about.storyHeadline}
-        </h2>
+      {/* Floating slide counter in top-right corner */}
+      <div className="absolute top-8 right-8 md:right-16 font-mono text-[11px] tracking-widest text-zinc-400 select-none z-10 font-bold uppercase">
+        {String(normalizedIndex + 1).padStart(2, '0')} / {String(N).padStart(2, '0')}
       </div>
 
-      {/* Outer wrapper to position mobile control overlays */}
-      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10 w-full mb-10">
-        <div className="relative w-full overflow-hidden rounded-2xl shadow-2xl border border-zinc-200/50 bg-zinc-50 aspect-[4/5] sm:aspect-[16/10] md:aspect-[16/9] lg:h-[720px]">
-          
-          {/* ULTRA-LUXURY FADE CONTAINER */}
-          <div 
-            ref={trackRef}
-            className="w-full h-full relative select-none"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-          >
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={currentIndex}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="absolute inset-0 w-full h-full overflow-hidden group/slide cursor-pointer"
-                onClick={nextSlide}
-              >
-                <img
-                  src={slides[currentIndex]?.imageUrl}
-                  alt={slides[currentIndex]?.title}
-                  referrerPolicy="no-referrer"
-                  draggable={false}
-                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out hover:scale-105 pointer-events-none"
-                />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Elegant Bullet Indicators matching image swiping requests */}
-      <div className="flex justify-center items-center space-x-2.5 mt-4 mb-2 select-none">
-        {slides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => {
-              if (isAnimatingRef.current || idx === currentIndex) return;
-              isAnimatingRef.current = true;
-              setCurrentIndex(idx);
-              setTimeout(() => {
-                isAnimatingRef.current = false;
-              }, 600);
+      {/* Full-width carousel container */}
+      <div className="w-full relative mt-10">
+        <div 
+          ref={trackRef}
+          className="w-full overflow-hidden relative cursor-grab active:cursor-grabbing"
+          style={{ height: slideHeight + 16 }}
+        >
+          <div
+            ref={trackDivRef}
+            className="flex items-center"
+            style={{
+              gap: `${gap}px`,
+              transform: `translate3d(${targetX}px, 0, 0)`,
+              transition: isDragging ? "none" : "transform 320ms cubic-bezier(0.16, 1, 0.3, 1)",
+              willChange: "transform",
             }}
-            className={`h-1.5 rounded-full transition-all duration-500 cursor-pointer ${
-              idx === currentIndex 
-                ? "w-8 bg-gold-dark" 
-                : "w-2 bg-zinc-200 hover:bg-zinc-400"
-            }`}
-            aria-label={`Go to slide ${idx + 1}`}
+          >
+            {extendedSlides.map((slide, idx) => {
+              if (!slide) return null;
+              const isActive = idx === extendedIndex;
+              const slideScale = isActive ? 1 : idx === extendedIndex - 1 || idx === extendedIndex + 1 ? 0.92 : 0.85;
+              const slideOpacity = isActive ? 1 : idx === extendedIndex - 1 || idx === extendedIndex + 1 ? 0.55 : 0.35;
+
+              return (
+                <div
+                  key={`${slide.id || idx}-${idx}`}
+                  className={`flex-shrink-0 relative overflow-hidden select-none rounded-[8px] border border-black/[0.03] bg-zinc-50 carousel-slide ${
+                    isActive ? "active-floating" : ""
+                  }`}
+                  style={{
+                    width: slideWidth,
+                    height: slideHeight,
+                    opacity: slideOpacity,
+                    transform: "translate3d(0, 0, 0)",
+                    backfaceVisibility: "hidden",
+                    transformStyle: "flat",
+                  }}
+                >
+                  <div 
+                    className="w-full h-full relative overflow-hidden img-container"
+                    style={{
+                      transform: `scale(${slideScale})`,
+                      transformStyle: "flat",
+                    }}
+                  >
+                    <img
+                      src={slide.imageUrl}
+                      alt={slide.title}
+                      loading="lazy"
+                      decoding="async"
+                      onLoad={() => handleImageLoad(slide.imageUrl)}
+                      className={`w-full h-full object-cover transition-opacity duration-500 md:hover:scale-[1.03] ${
+                        loadedImages[slide.imageUrl] ? "opacity-100" : "opacity-0"
+                      }`}
+                      draggable={false}
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Thin Minimal Progress Bar Underneath Carousel */}
+      <div className="w-full max-w-[1100px] mx-auto px-6 md:px-8 mt-8">
+        <div className="w-full h-[1.5px] bg-zinc-150 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gold transition-all duration-320 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{
+              width: `${((normalizedIndex + 1) / N) * 100}%`,
+            }}
           />
-        ))}
+        </div>
       </div>
 
-      {/* NAVIGATION & TEXT CAPTION ROW (Directly matching the style guidelines in image) */}
-      <div className="max-w-7xl mx-auto px-6 md:px-12 mt-12">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-12 border-b border-zinc-200/80">
+      {/* Structured Text & Controls */}
+      <div className="w-full max-w-[1100px] mx-auto px-6 md:px-8">
+        <div className="mt-16 md:mt-24 flex flex-col md:flex-row items-start justify-between gap-8 border-t border-zinc-150 pt-12">
           
-          {/* Headline Title */}
-          <div className="max-w-xl">
-            <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-zinc-400 block mb-2 font-medium">
-              CURRENT CATALOG
-            </span>
-            <h3 className="font-serif text-3xl sm:text-4xl md:text-5xl text-luxury-black tracking-wide font-normal leading-tight uppercase">
-              {slides[currentIndex]?.title || "SIGNATURE WORK"}
+          <div className="flex-1">
+            <h3 
+              className={`font-serif font-light text-black tracking-[-0.04em] leading-[0.88] uppercase transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isRevealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[30px]"
+              }`}
+              style={{
+                fontSize: windowWidth >= 1024 ? "100px" : windowWidth >= 768 ? "70px" : "48px",
+                transitionDelay: isRevealed ? "450ms" : "0ms",
+              }}
+            >
+              SIGNATURE<br />WORK
             </h3>
-          </div>
-
-          {/* Navigation Arrows */}
-          <div className="flex items-center space-x-8 select-none">
-            <button 
-              onClick={prevSlide}
-              className="w-11 h-11 rounded-full border border-zinc-300 flex items-center justify-center hover:bg-luxury-black hover:text-white hover:border-luxury-black transition-all duration-300 cursor-pointer group"
-              aria-label="Previous Slide"
-            >
-              <span className="text-lg font-light transform group-hover:-translate-x-1 transition-transform">&larr;</span>
-            </button>
-            <button 
-              onClick={nextSlide}
-              className="w-11 h-11 rounded-full border border-zinc-300 flex items-center justify-center hover:bg-luxury-black hover:text-white hover:border-luxury-black transition-all duration-300 cursor-pointer group"
-              aria-label="Next Slide"
-            >
-              <span className="text-lg font-light transform group-hover:translate-x-1 transition-transform">&rarr;</span>
-            </button>
-          </div>
-
-        </div>
-
-        {/* Detailed Description Grid with Philosophy Background Image */}
-        <div className="relative mt-16 rounded-2xl overflow-hidden border border-zinc-800/50 shadow-2xl p-8 sm:p-12 md:p-16">
-          {/* Background Image with elegant dark overlay */}
-          <div className="absolute inset-0 z-0">
-            <img
-              src={about?.philosophyBgUrl || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1600"}
-              alt="Core Philosophy Background"
-              className="w-full h-full object-cover opacity-65 transition-transform duration-[4000ms] ease-out hover:scale-105"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-br from-luxury-black/95 via-luxury-black/85 to-luxury-black/70" />
-          </div>
-
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-16 items-start">
             
-            <div className="md:col-span-4">
-              <span className="text-[10px] md:text-xs uppercase tracking-[0.4em] text-gold font-bold block mb-3">
-                The Glimpse
-              </span>
-              <p className="text-zinc-200 font-sans text-xs sm:text-sm leading-relaxed font-light">
-                {about?.storyDescription}
-              </p>
-            </div>
+            <p 
+              className={`mt-6 text-zinc-600 max-w-xl text-sm md:text-base leading-relaxed font-light font-sans transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isRevealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
+              style={{
+                transitionDelay: isRevealed ? "600ms" : "0ms",
+              }}
+            >
+              Every wedding is a live canvas of light, shadow, and unscripted sentiment. Our signature work showcases a curated collection of cinematic storytelling where raw human emotion meets architectural composition. We do not merely capture events; we immortalize the subtle, fleeting glances, the delicate textures, and the silent chemistry that make your love story an enduring work of art.
+            </p>
 
-            <div className="md:col-span-8">
-              <span className="text-[10px] md:text-xs uppercase tracking-[0.4em] text-gold font-bold block mb-3">
-                Core Philosophies
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-zinc-300 font-sans">
-                {about?.storyParagraphs && about.storyParagraphs.map((para, i) => {
-                  const parts = para.split(": ");
-                  const heading = parts[0];
-                  const text = parts[1] || "";
-                  return (
-                    <div key={i} className="space-y-2 border-l-2 border-gold/50 pl-4">
-                      <h4 className="font-mono text-[9.5px] uppercase tracking-widest text-white font-semibold">
-                        {heading}
-                      </h4>
-                      <p className="leading-relaxed text-zinc-300 font-light">
-                        {text}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+            <div 
+              className={`mt-8 text-[13px] md:text-[14px] tracking-[8px] uppercase font-light text-zinc-400 select-none transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isRevealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
+              style={{
+                transitionDelay: isRevealed ? "750ms" : "0ms",
+              }}
+            >
+              HERE'S A GLIMPSE INTO THE
             </div>
-
           </div>
+
         </div>
       </div>
-
     </section>
   );
 }

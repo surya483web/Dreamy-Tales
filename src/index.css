@@ -2,15 +2,16 @@
 
 @theme {
   --font-serif: "Cormorant Garamond", Georgia, serif;
-  --font-display: "Playfair Display", Garamond, serif;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-signature: "Alex Brush", cursive;
   
   --color-luxury-black: #0B0B0B;
   --color-luxury-charcoal: #1C1C1C;
   --color-luxury-gray: #E4E4E7;
-  --color-gold-light: #FDFBF7;
-  --color-gold: #B49467;
-  --color-gold-dark: #8F7249;
+  --color-gold-light: #F4F4F5;
+  --color-gold: #000000;
+  --color-gold-dark: #000000;
   
   --animate-fade-in: fade-in 1s ease-out forwards;
   --animate-slide-up: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -37,24 +38,118 @@
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #FDFBF7;
+  background: #F4F4F5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #B49467;
+  background: #18181B;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #8F7249;
+  background: #000000;
 }
 
-/* Smooth HTML scroll */
+/* Smooth HTML scroll with high-performance native scroll snapping */
 html {
   scroll-behavior: smooth;
-  background-color: #FFFFFF;
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: 0px;
+  background-color: #0B0B0B;
   color: #1C1C1C;
 }
 
 body {
   font-family: var(--font-sans);
   overflow-x: hidden;
+  background-color: #0B0B0B;
 }
+
+/* Scroll snap alignment for sections */
+.snap-section {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* Hide scrollbars for floating cards */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Card Reveal Sub-element Transitions (Apple-like Cinematic Entrance Reveals) */
+.card-container-inner h1,
+.card-container-inner h2,
+.card-container-inner h3,
+.card-container-inner p,
+.card-container-inner img,
+.card-container-inner button,
+.card-container-inner a,
+.card-container-inner .reveal-el {
+  transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+/* Inactive State: scaled up, hidden, or shifted */
+.card-inactive .card-container-inner h1,
+.card-inactive .card-container-inner h2,
+.card-inactive .card-container-inner h3,
+.card-inactive .card-container-inner .reveal-heading {
+  opacity: 0;
+  transform: translateY(32px) !important;
+}
+
+.card-inactive .card-container-inner p {
+  opacity: 0;
+  transform: translateY(20px) !important;
+}
+
+.card-inactive .card-container-inner img {
+  transform: scale(1.05) !important;
+}
+
+.card-inactive .card-container-inner button,
+.card-inactive .card-container-inner a {
+  opacity: 0;
+  transform: translateY(24px) !important;
+}
+
+.card-inactive .card-container-inner .reveal-el {
+  opacity: 0;
+  transform: translateY(16px) !important;
+}
+
+/* Active State: restored to standard layout naturally */
+.card-active .card-container-inner h1,
+.card-active .card-container-inner h2,
+.card-active .card-container-inner h3,
+.card-active .card-container-inner .reveal-heading {
+  opacity: 1;
+  transform: translateY(0) !important;
+}
+
+.card-active .card-container-inner p {
+  opacity: 1;
+  transform: translateY(0) !important;
+  transition-delay: 0.1s;
+}
+
+.card-active .card-container-inner img {
+  transform: scale(1) !important;
+  transition: transform 1.8s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.card-active .card-container-inner button,
+.card-active .card-container-inner a {
+  opacity: 1;
+  transform: translateY(0) !important;
+  transition-delay: 0.2s;
+}
+
+.card-active .card-container-inner .reveal-el {
+  opacity: 1;
+  transform: translateY(0) !important;
+  transition-delay: 0.3s;
+}
+

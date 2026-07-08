@@ -44,7 +44,7 @@ export default function AboutUs({ about, details }: AboutUsProps) {
   return (
     <section id="about-us" className="relative py-28 md:py-36 bg-white overflow-hidden border-b border-zinc-200/40">
       {/* Background Architectural Watermarks & Subtle Luxury Ornaments */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-gold/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-0 w-96 h-96 bg-zinc-100/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-zinc-100 rounded-full blur-2xl pointer-events-none" />
 
       {/* Subtle layout gridlines */}
@@ -58,73 +58,52 @@ export default function AboutUs({ about, details }: AboutUsProps) {
           <div className="lg:col-span-5 relative flex justify-center w-full">
             
             {/* Elegant outer frame shadow border */}
-            <div className="absolute -inset-4 border border-gold/20 rounded pointer-events-none translate-x-2 translate-y-2 z-0 hidden sm:block" />
+            <div className="absolute -inset-4 border border-zinc-200 rounded-[36px] pointer-events-none translate-x-2 translate-y-2 z-0 hidden sm:block" />
 
             {/* Huge high-fashion vertical image block */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
-              whileInView={{ opacity: 1, scale: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              className="relative w-full aspect-[2/3] max-h-[720px] overflow-hidden rounded bg-zinc-100 shadow-2xl z-10 group"
-            >
+            <div className="relative w-full aspect-[2/3] max-h-[720px] overflow-hidden rounded-[32px] bg-zinc-100 shadow-[0_24px_50px_rgba(0,0,0,0.08)] border border-black/5 z-10 group">
               <img
                 src={photoUrl}
                 alt={name}
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover transition-transform duration-[2.5s] ease-out group-hover:scale-105 filter grayscale hover:grayscale-0"
+                className="w-full h-full object-cover transition-transform duration-[2.5s] ease-out group-hover:scale-105"
               />
               
               {/* Shimmer glaze */}
               <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none" />
-            </motion.div>
+            </div>
 
             {/* Premium boutique floating label */}
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-              className="absolute -bottom-6 -left-4 sm:-left-8 bg-[#0D0D0D] border border-zinc-800 text-white py-4 px-6 rounded shadow-2xl flex flex-col justify-center items-center z-20 select-none"
-            >
-              <span className="font-mono text-[9px] tracking-[0.3em] text-gold uppercase font-semibold">
+            <div className="absolute -bottom-6 -left-4 sm:-left-8 bg-[#0D0D0D] border border-zinc-850 text-white py-4 px-6 rounded shadow-2xl flex flex-col justify-center items-center z-20 select-none">
+              <span className="font-mono text-[9px] tracking-[0.3em] text-zinc-400 uppercase font-semibold">
                 {msme}
               </span>
               <span className="font-serif text-lg md:text-xl font-light tracking-widest mt-1 text-white">
                 {experience}
               </span>
-            </motion.div>
+            </div>
           </div>
 
           {/* Right Column: Narrative Block */}
-          <motion.div 
-            className="lg:col-span-7 space-y-10"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={containerVariants}
-          >
+          <div className="lg:col-span-7 space-y-10">
             {/* Elegant section tag */}
-            <motion.div variants={itemVariants} className="flex items-center gap-3">
-              <span className="h-[1px] w-8 bg-gold-dark" />
-              <span className="font-mono text-[10px] md:text-xs uppercase tracking-[0.5em] text-gold-dark font-semibold">
+            <div className="flex items-center gap-3">
+              <span className="h-[1px] w-8 bg-black" />
+              <span className="font-mono text-[10px] md:text-xs uppercase tracking-[0.5em] text-black font-semibold">
                 Creative Vision
               </span>
-            </motion.div>
+            </div>
 
             {/* Redesigned Minimalist Serif Heading */}
-            <motion.h2 
-              variants={itemVariants}
-              className="font-serif text-3.5xl sm:text-4.5xl md:text-5.5xl lg:text-6.5xl text-[#1A1A1A] tracking-wide leading-tight font-light uppercase"
-            >
+            <h2 className="font-serif text-3.5xl sm:text-4.5xl md:text-5.5xl lg:text-6.5xl text-[#1A1A1A] tracking-wide leading-tight font-light uppercase">
               About the <br />
-              <span className="text-gold italic font-normal font-serif lowercase tracking-normal">studio</span>
-            </motion.h2>
+              <span className="text-black italic font-normal font-serif lowercase tracking-normal">studio</span>
+            </h2>
 
-            <div className="w-16 h-[1px] bg-gold/40" />
+            <div className="w-16 h-[1px] bg-zinc-200" />
 
             {/* Custom Narrative Body */}
-            <motion.div variants={itemVariants} className="space-y-6">
+            <div className="space-y-6">
               <p className="text-luxury-black font-sans text-base sm:text-lg md:text-xl font-light tracking-wide leading-relaxed">
                 {storyHeadline} — {name} is a high-fashion, boutique photography &amp; film studio crafted for couples who cherish absolute visual poetry.
               </p>
@@ -132,13 +111,14 @@ export default function AboutUs({ about, details }: AboutUsProps) {
               <p className="text-zinc-500 font-sans text-sm sm:text-base font-light leading-relaxed whitespace-pre-line">
                 {storyDescription} Under the creative direction of Gyanu Verma and backed by {experience} of excellence, we specialize in luxury wedding storytelling that feels deeply intimate, authentic, and cinematic. We bypass forced poses to preserve the raw, unscripted chemistry that makes your tale unique.
               </p>
-            </motion.div>
+
+              <p className="text-zinc-400 font-sans text-sm sm:text-base font-light leading-relaxed">
+                Every frame we capture is treated as a unique canvas of light and shadows, combining architectural discipline with raw human sentiment. We believe that true wedding luxury lies in the details—the soft rustle of silk, the quiet exchange of a glance before the crowd gathers, and the unfiltered emotional depth of your closest relationships. By maintaining a quiet, non-obtrusive presence, we allow your day to unfold organically while crafting a high-end visual legacy that will be treasured for generations.
+              </p>
+            </div>
 
             {/* Founder approval & stamp of luxury */}
-            <motion.div 
-              variants={itemVariants}
-              className="flex items-center gap-6 pt-2 border-t border-zinc-200/50 max-w-md"
-            >
+            <div className="flex items-center gap-6 pt-2 border-t border-zinc-200/50 max-w-md">
               <div>
                 <span className="block font-serif text-lg tracking-wide text-[#1A1A1A] font-medium uppercase">
                   {owner}
@@ -147,25 +127,25 @@ export default function AboutUs({ about, details }: AboutUsProps) {
                   Founder &amp; Lead Curator
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-full border border-gold/20 flex items-center justify-center p-2 bg-zinc-50 select-none ml-auto">
-                <Star className="w-4 h-4 text-gold fill-gold/20" />
+              <div className="w-12 h-12 rounded-full border border-zinc-200 flex items-center justify-center p-2 bg-zinc-50 select-none ml-auto">
+                <Star className="w-4 h-4 text-black fill-black/5" />
               </div>
-            </motion.div>
+            </div>
 
             {/* Instagram Link Button */}
-            <motion.div variants={itemVariants} className="pt-2">
+            <div className="pt-2">
               <a
                 href="https://www.instagram.com/dreamytalesstudio?igsh=bTA2NjRnZXdzMWMy"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center space-x-3 px-6 py-3.5 bg-[#0D0D0D] hover:bg-gold hover:text-luxury-black text-white rounded text-xs uppercase tracking-[0.2em] font-medium transition-all duration-500 shadow-xl group"
+                className="inline-flex items-center space-x-3 px-6 py-3.5 bg-black hover:bg-zinc-900 text-white rounded text-xs uppercase tracking-[0.2em] font-medium transition-all duration-500 shadow-xl group"
                 id="about-us-instagram-btn"
               >
-                <Instagram className="w-4 h-4 text-gold group-hover:text-luxury-black transition-colors" />
+                <Instagram className="w-4 h-4 text-white group-hover:text-zinc-300 transition-colors" />
                 <span>Explore Our Instagram</span>
               </a>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
         </div>
       </div>

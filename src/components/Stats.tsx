@@ -18,16 +18,20 @@ interface CounterProps {
 function Counter({ value }: CounterProps) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const isInView = useInView(ref, { once: false, margin: "-50px" });
 
   useEffect(() => {
-    if (!isInView) return;
+    if (!isInView) {
+      // Reset the count to 0 when it goes out of view, so it animates again on next scroll in
+      setCount(0);
+      return;
+    }
 
     let start = 0;
     const end = value;
     if (start === end) return;
 
-    const duration = 500; // 0.5 seconds super fast count effect
+    const duration = 300; // 0.3 seconds super fast count effect on every scroll in
     const startTime = performance.now();
 
     const updateCount = (now: number) => {
@@ -78,20 +82,14 @@ export default function Stats({ stats }: StatsProps) {
         {/* Header Block exactly like the uploaded image */}
         <div className="max-w-3xl mx-auto mb-16 md:mb-20 text-center">
           <motion.span 
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="font-sans text-[10px] md:text-xs uppercase tracking-[0.4em] text-gold-dark mb-4 block font-semibold"
+            initial={{ opacity: 1, y: 0 }}
+            className="font-sans text-[10px] md:text-xs uppercase tracking-[0.4em] text-black mb-4 block font-semibold"
           >
             OUR LEGACY
           </motion.span>
           
           <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.1 }}
+            initial={{ opacity: 1, y: 0 }}
             className="font-serif text-3xl sm:text-4xl md:text-5xl text-luxury-black tracking-wide font-light"
           >
             The milestones of storytelling
@@ -103,24 +101,17 @@ export default function Stats({ stats }: StatsProps) {
           {milestones.map((mil, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ 
-                duration: 0.8, 
-                delay: idx * 0.15,
-                ease: [0.25, 1, 0.5, 1] // Custom smooth easeOut
-              }}
-              className="relative flex flex-col items-center justify-center p-10 md:p-12 text-center bg-[#21201D] rounded shadow-xl border border-zinc-800/20 group hover:scale-[1.02] transition-transform duration-500"
+              initial={{ opacity: 1, y: 0 }}
+              className="relative flex flex-col items-center justify-center p-10 md:p-12 text-center bg-gradient-to-b from-[#18181B] to-[#09090B] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-zinc-800/60 group hover:scale-[1.02] hover:shadow-[0_24px_60px_rgba(0,0,0,0.85)] hover:border-zinc-700/80 transition-all duration-500"
             >
-              {/* Gold Numerals */}
-              <div className="font-serif text-5xl sm:text-6xl md:text-7xl text-[#C5A880] font-light tracking-tight select-none flex items-baseline">
+              {/* White Numerals */}
+              <div className="font-serif text-5xl sm:text-6xl md:text-7xl text-white font-light tracking-tight select-none flex items-baseline">
                 <Counter value={mil.value} />
-                <span className="text-[#C5A880] text-3xl md:text-4xl font-light ml-0.5">+</span>
+                <span className="text-white text-3xl md:text-4xl font-light ml-0.5">+</span>
               </div>
               
               {/* Divider exactly matching the visual spacing */}
-              <div className="w-12 h-[1px] bg-zinc-800 my-5 group-hover:bg-gold/30 transition-colors duration-500" />
+              <div className="w-12 h-[1px] bg-zinc-800 my-5 group-hover:bg-zinc-700 transition-colors duration-500" />
 
               {/* White uppercase title */}
               <h3 className="font-sans text-[10px] sm:text-xs text-white tracking-[0.2em] uppercase font-bold mb-2">
