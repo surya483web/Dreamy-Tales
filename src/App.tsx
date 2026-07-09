@@ -271,7 +271,12 @@ export default function App() {
           className="bg-[#0B0B0B] min-h-screen relative text-luxury-charcoal antialiased"
         >
           {/* 1. Sticky Navigation Header */}
-          <Header onAdminClick={() => setIsAdminOpen(!isAdminOpen)} isAdminMode={isAdminOpen} currentPath={currentPath} />
+          <Header
+            onAdminClick={() => setIsAdminOpen(!isAdminOpen)}
+            onTermsClick={() => setIsTermsOpen(true)}
+            isAdminMode={isAdminOpen}
+            currentPath={currentPath}
+          />
 
           {/* Sequential Scrollable Layout with Premium Viewport Entrance Reveals */}
           <main className="relative overflow-visible bg-[#0B0B0B] pb-[4vh]">
@@ -309,7 +314,7 @@ export default function App() {
             <CardStackSection id="contact" zIndex={70}>
               <Contact details={content.details} isModalOpen={isReserveModalOpen} setIsModalOpen={setIsReserveModalOpen} />
               
-              {/* 9. Premium Boutique Footer styled like OMBRE */}
+              {/* 9. Premium Boutique Footer styled like DTSTUDIO */}
               <footer className="bg-[#0D0D0D] text-white pt-24 pb-16 relative overflow-hidden border-t border-zinc-900">
                 <div className="max-w-4xl mx-auto px-6 relative z-10 flex flex-col items-center">
                   
@@ -324,7 +329,7 @@ export default function App() {
                       </div>
                       
                       <span className="font-serif text-[44px] sm:text-[56px] tracking-[0.2em] text-white leading-none font-light uppercase pl-6 sm:pl-8">
-                        {content.details.name || "OMBRE"}
+                        {content.details.name || "DTSTUDIO"}
                       </span>
                     </div>
                   </div>
@@ -362,7 +367,7 @@ export default function App() {
                   <div className="w-full border-t border-zinc-900 pt-10 text-center text-zinc-500 font-sans tracking-[0.18em] text-[8px] sm:text-[9px] uppercase leading-relaxed font-light space-y-4">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 max-w-2xl mx-auto">
                       <span>
-                        COPYRIGHT © {new Date().getFullYear()} {content.details.name || "OMBRE"} SERVICES PVT. LTD.
+                        COPYRIGHT © {new Date().getFullYear()} {content.details.name || "DTSTUDIO"} SERVICES PVT. LTD.
                       </span>
                       <button
                         onClick={() => setIsTermsOpen(true)}

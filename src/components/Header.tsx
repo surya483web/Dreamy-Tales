@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
   onAdminClick: () => void;
+  onTermsClick: () => void;
   isAdminMode: boolean;
   currentPath: string;
 }
 
-export default function Header({ onAdminClick, isAdminMode, currentPath }: HeaderProps) {
+export default function Header({ onAdminClick, onTermsClick, isAdminMode, currentPath }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOverlayMenuOpen, setIsOverlayMenuOpen] = useState(false);
@@ -105,6 +106,18 @@ export default function Header({ onAdminClick, isAdminMode, currentPath }: Heade
             );
           })}
           
+          {/* T&C Trigger */}
+          <button
+            onClick={onTermsClick}
+            className={`flex items-center space-x-1.5 px-3 py-2 border text-[10px] uppercase tracking-[0.15em] transition-all duration-300 cursor-pointer rounded-sm ${
+              isScrolled || currentPath !== "home"
+                ? "border-zinc-300 text-zinc-600 hover:border-black hover:text-black hover:bg-zinc-50"
+                : "border-white/30 text-white/80 hover:border-white hover:text-white hover:bg-white/10"
+            }`}
+          >
+            <span>T&C</span>
+          </button>
+          
           {/* Admin Control Trigger */}
           <button
             onClick={onAdminClick}
@@ -116,7 +129,18 @@ export default function Header({ onAdminClick, isAdminMode, currentPath }: Heade
         </nav>
 
         {/* Mobile Controls Trigger */}
-        <div className="flex lg:hidden items-center space-x-4">
+        <div className="flex lg:hidden items-center space-x-3">
+          <button
+            onClick={onTermsClick}
+            className={`px-2 py-1.5 rounded-sm border text-[9px] font-bold uppercase tracking-[0.12em] ${
+              isScrolled || currentPath !== "home"
+                ? "border-zinc-300 text-zinc-600 hover:text-black"
+                : "border-white/20 text-white/80 hover:text-white"
+            }`}
+          >
+            T&C
+          </button>
+
           <button
             onClick={onAdminClick}
             className={`p-2 rounded-sm border bg-black text-white border-black`}

@@ -10,7 +10,7 @@ interface AboutUsProps {
 
 export default function AboutUs({ about, details }: AboutUsProps) {
   const photoUrl = about?.photoUrl || "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200";
-  const name = details?.name || "OMBRES";
+  const name = details?.name || "DTSTUDIO";
   const msme = details?.msme || "MSME";
   const experience = details?.experience || "5+ Years";
   const storyHeadline = about?.storyHeadline || "";

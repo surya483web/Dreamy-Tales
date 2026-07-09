@@ -5,12 +5,13 @@ import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { StudioContent, Inquiry } from "./src/types.js";
 import multer from "multer";
+import convert from "heic-convert";
 
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "500mb" }));
-app.use(express.urlencoded({ limit: "500mb", extended: true }));
+app.use(express.json({ limit: "1100mb" }));
+app.use(express.urlencoded({ limit: "1100mb", extended: true }));
 
 // Uploads directory
 const UPLOADS_DIR = path.join(process.cwd(), "data", "uploads");
@@ -213,14 +214,56 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 500 * 1024 * 1024 } // 500MB
+  limits: { fileSize: 1000 * 1024 * 1024 } // 1000MB
 });
 
 // Upload endpoint for files from local device
-app.post("/api/upload", upload.single("file"), (req, res) => {
+app.post("/api/upload", (req, res, next) => {
+  upload.single("file")(req, res, (err: any) => {
+    if (err) {
+      console.error("Multer error during upload:", err);
+      return res.status(400).json({ error: err.message || "Multer upload failed." });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     // 1. Check if standard multipart/form-data upload was used
     if (req.file) {
+      const ext = path.extname(req.file.filename).toLowerCase();
+      if (ext === ".heic" || ext === ".heif") {
+        try {
+          console.log(`HEIC upload detected: ${req.file.filename}. Converting to JPEG...`);
+          const inputBuffer = fs.readFileSync(req.file.path);
+          const outputBuffer = await convert({
+            buffer: inputBuffer,
+            format: "JPEG",
+            quality: 0.9,
+          });
+          
+          const originalFilename = req.file.filename;
+          const newFilename = originalFilename.substring(0, originalFilename.length - ext.length) + ".jpg";
+          const newPath = path.join(UPLOADS_DIR, newFilename);
+          
+          fs.writeFileSync(newPath, Buffer.from(outputBuffer));
+          
+          // Delete original HEIC file
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (err) {
+            console.warn("Failed to delete original HEIC file:", err);
+          }
+          
+          return res.json({
+            success: true,
+            url: `/uploads/${newFilename}`,
+          });
+        } catch (convErr: any) {
+          console.error("HEIC conversion failed, falling back to original:", convErr);
+          // fall back to original file if conversion fails
+        }
+      }
+
       return res.json({
         success: true,
         url: `/uploads/${req.file.filename}`,
@@ -228,10 +271,27 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
     }
 
     // 2. Fallback to base64 body if sent as JSON
-    const { fileName, fileType, fileData } = req.body || {};
+    let { fileName, fileType, fileData } = req.body || {};
     if (fileName && fileData) {
-      const base64Data = fileData.replace(/^data:.*?;base64,/, "");
-      const buffer = Buffer.from(base64Data, "base64");
+      let base64Data = fileData.replace(/^data:.*?;base64,/, "");
+      let buffer = Buffer.from(base64Data, "base64");
+      const baseExt = path.extname(fileName).toLowerCase();
+
+      if (baseExt === ".heic" || baseExt === ".heif") {
+        try {
+          console.log(`Base64 HEIC upload detected: ${fileName}. Converting to JPEG...`);
+          const outputBuffer = await convert({
+            buffer: buffer,
+            format: "JPEG",
+            quality: 0.9,
+          });
+          buffer = Buffer.from(outputBuffer);
+          fileName = fileName.substring(0, fileName.length - baseExt.length) + ".jpg";
+          fileType = "image/jpeg";
+        } catch (convErr) {
+          console.error("Base64 HEIC conversion failed:", convErr);
+        }
+      }
 
       const ext = path.extname(fileName) || (fileType && fileType.split("/")[1] ? `.${fileType.split("/")[1]}` : "");
       const baseName = path.basename(fileName, ext).replace(/[^a-zA-Z0-9]/g, "_");
@@ -248,6 +308,7 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
 
     return res.status(400).json({ error: "No file uploaded or missing data." });
   } catch (err: any) {
+    console.error("Upload handler error:", err);
     res.status(500).json({ error: err.message || "Failed to upload file." });
   }
 });

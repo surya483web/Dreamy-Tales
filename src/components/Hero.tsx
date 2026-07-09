@@ -58,7 +58,7 @@ export default function Hero({ data, onReserveClick, isAdminMode }: HeroProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const videoUrl = data?.videoUrl || "";
-  const headline = data?.headline || "OMBRE";
+  const headline = data?.headline || "DTSTUDIO";
   const subHeadline = data?.subHeadline || "";
 
   const [currentVideoUrl, setCurrentVideoUrl] = useState(videoUrl);

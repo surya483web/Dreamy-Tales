@@ -554,7 +554,7 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
                 <a href={telLink} className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><Phone className="w-3.5 h-3.5" /><span>Call</span></a>
                 <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-zinc-300 hover:border-black bg-zinc-50 hover:bg-black text-black hover:text-white transition-all text-[11px] font-bold tracking-wider uppercase shadow-sm cursor-pointer"><MessageCircle className="w-3.5 h-3.5" /><span>WhatsApp</span></a>
               </div>
-              {/* Elegant light-brown signal indicator */}
+              {/* Elegant black signal indicator */}
               <div className="h-10 opacity-30 group-hover:opacity-60 transition-all duration-500 hidden sm:flex items-center pr-4 space-x-0.5">
                 <div className="w-[3px] h-6 bg-black rounded-full" />
                 <div className="w-[3px] h-9 bg-black rounded-full" />

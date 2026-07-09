@@ -221,11 +221,21 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
                   <div className="relative overflow-hidden aspect-[4/5] bg-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.1)] border border-black/5 transition-all duration-500 ease-out">
                     {item.mediaType === "video" ? (
                       <div className="w-full h-full relative">
-                        <img
-                          src={item.thumbnail || "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&q=80&w=800"}
-                          alt={item.title}
-                          className="w-full h-full object-cover grayscale contrast-[1.05] brightness-[1.01] transition-all duration-1000 group-hover:scale-[1.03] group-hover:contrast-[1.1]"
-                        />
+                        {item.thumbnail && !item.thumbnail.endsWith(".mp4") && !item.thumbnail.endsWith(".webm") && !item.thumbnail.endsWith(".mov") ? (
+                          <img
+                            src={item.thumbnail}
+                            alt={item.title}
+                            className="w-full h-full object-cover grayscale contrast-[1.05] brightness-[1.01] transition-all duration-1000 group-hover:scale-[1.03] group-hover:contrast-[1.1]"
+                          />
+                        ) : (
+                          <video
+                            src={item.mediaUrl}
+                            className="w-full h-full object-cover grayscale contrast-[1.05] brightness-[1.01] transition-all duration-1000 group-hover:scale-[1.03] group-hover:contrast-[1.1]"
+                            preload="metadata"
+                            muted
+                            playsInline
+                          />
+                        )}
                         {/* Elegant Glassmorphic Play button */}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/5 z-10">
                           <div className="w-14 h-14 rounded-full border border-white/20 bg-white/10 backdrop-blur-md flex items-center justify-center text-white scale-95 group-hover:scale-100 group-hover:bg-white group-hover:text-luxury-black transition-all duration-500">
@@ -322,7 +332,7 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
             </div>
 
             {/* Main Stage Media */}
-            <div className="relative w-full max-w-5xl h-[60vh] md:h-[75vh] flex items-center justify-center select-none cursor-default" onClick={(e) => e.stopPropagation()}>
+            <div className="relative w-full max-w-5xl h-[60vh] md:h-[75vh] flex items-center justify-center select-none cursor-default">
               
               {/* Navigation Left */}
               <button
@@ -333,7 +343,7 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
               </button>
 
               {/* Main Media Core */}
-              <div className="max-w-full max-h-full rounded-lg overflow-hidden shadow-2xl flex items-center justify-center bg-luxury-black border border-white/5">
+              <div className="max-w-full max-h-full rounded-lg overflow-hidden shadow-2xl flex items-center justify-center bg-luxury-black border border-white/5" onClick={(e) => e.stopPropagation()}>
                 {currentItem.mediaType === "video" ? (
                   <video
                     ref={lightboxVideoRef}

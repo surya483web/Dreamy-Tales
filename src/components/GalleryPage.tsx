@@ -172,7 +172,7 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
           </button>
 
           <span className="font-serif text-lg sm:text-2xl tracking-[0.25em] font-light uppercase text-luxury-black">
-            {brandName || "OMBRE"}
+            {brandName || "DTSTUDIO"}
           </span>
 
           <div className="flex items-center gap-2 text-xs tracking-[0.2em] uppercase font-sans text-zinc-400">
@@ -254,12 +254,22 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
                   <div className="relative overflow-hidden aspect-[3/4] bg-zinc-50 shadow-sm">
                     {item.mediaType === "video" ? (
                       <div className="w-full h-full relative">
-                        <img
-                          src={item.thumbnail || "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&q=80&w=800"}
-                          alt={item.title}
-                          className="w-full h-full object-cover grayscale contrast-[1.03] brightness-[1.01] transition-transform duration-700 group-hover:scale-105"
-                          referrerPolicy="no-referrer"
-                        />
+                        {item.thumbnail && !item.thumbnail.endsWith(".mp4") && !item.thumbnail.endsWith(".webm") && !item.thumbnail.endsWith(".mov") ? (
+                          <img
+                            src={item.thumbnail}
+                            alt={item.title}
+                            className="w-full h-full object-cover grayscale contrast-[1.03] brightness-[1.01] transition-transform duration-700 group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <video
+                            src={item.mediaUrl}
+                            className="w-full h-full object-cover grayscale contrast-[1.03] brightness-[1.01] transition-transform duration-700 group-hover:scale-105"
+                            preload="metadata"
+                            muted
+                            playsInline
+                          />
+                        )}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                           <div className="w-12 h-12 rounded-full border border-white/20 bg-white/10 backdrop-blur-md flex items-center justify-center text-white scale-90 group-hover:scale-100 group-hover:bg-white group-hover:text-luxury-black transition-all duration-300">
                             <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
@@ -346,7 +356,7 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
             </div>
 
             {/* Main Stage Media */}
-            <div className="relative w-full max-w-5xl h-[65vh] md:h-[78vh] flex items-center justify-center cursor-default" onClick={(e) => e.stopPropagation()}>
+            <div className="relative w-full max-w-5xl h-[65vh] md:h-[78vh] flex items-center justify-center cursor-default">
               {/* Navigation Left */}
               <button
                 onClick={(e) => { e.stopPropagation(); navigateLightbox("prev"); }}
@@ -356,7 +366,7 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
               </button>
 
               {/* Main Media Core */}
-              <div className="max-w-full max-h-full rounded overflow-hidden shadow-2xl flex items-center justify-center bg-black border border-white/5">
+              <div className="max-w-full max-h-full rounded overflow-hidden shadow-2xl flex items-center justify-center bg-black border border-white/5" onClick={(e) => e.stopPropagation()}>
                 {currentItem.mediaType === "video" ? (
                   <video
                     ref={lightboxVideoRef}

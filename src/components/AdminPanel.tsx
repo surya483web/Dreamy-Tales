@@ -74,8 +74,74 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
     }
   }, [alertMsg]);
 
+  const uploadFileWithFallback = async (file: File): Promise<{ success: boolean; url: string }> => {
+    // Try standard multipart first
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.url) {
+          return result;
+        }
+      }
+      console.warn("Standard upload failed, attempting Base64 fallback...");
+    } catch (err) {
+      console.warn("Standard upload error, attempting Base64 fallback...", err);
+    }
+
+    // Base64 Fallback
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            resolve(reader.result);
+          } else {
+            reject(new Error("Failed to read file as data URL"));
+          }
+        };
+        reader.onerror = (error) => reject(error);
+      });
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileData: base64Data,
+        }),
+      });
+
+      if (!response.ok) {
+        const errResult = await response.json().catch(() => ({}));
+        throw new Error(errResult.error || "Server upload failed (all paths).");
+      }
+
+      const result = await response.json();
+      if (result.success && result.url) {
+        return result;
+      }
+      throw new Error("Invalid response from server upload.");
+    } catch (fallbackErr: any) {
+      console.error("Base64 fallback upload failed:", fallbackErr);
+      throw new Error(fallbackErr.message || "Server upload failed.");
+    }
+  };
+
   const handlePhilosophySlidesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+    const inputEl = e.target;
+    const files = inputEl?.files;
     if (!files || files.length === 0) return;
 
     setUploadingSlide(true);
@@ -86,7 +152,12 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       
       // 1. Optimistic high-speed updates: create local blob URLs and show immediately
       const optimisticSlides = fileList.map((file) => {
-        const localUrl = URL.createObjectURL(file);
+        let localUrl = "";
+        try {
+          localUrl = URL.createObjectURL(file);
+        } catch (createUrlErr) {
+          console.warn("URL.createObjectURL failed (sandboxed iframe in handlePhilosophySlidesUpload).", createUrlErr);
+        }
         const fName = file.name;
         const extIndex = fName.lastIndexOf(".");
         let rawName = extIndex !== -1 ? fName.substring(0, extIndex) : fName;
@@ -124,20 +195,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       await Promise.all(
         optimisticSlides.map(async (optSlide) => {
           try {
-            const formData = new FormData();
-            formData.append("file", optSlide.originalFile);
-
-            const response = await fetch("/api/upload", {
-              method: "POST",
-              body: formData,
-            });
-
-            if (!response.ok) {
-              const errResult = await response.json().catch(() => ({}));
-              throw new Error(errResult.error || `Upload failed for ${optSlide.originalFile.name}`);
-            }
-
-            const result = await response.json();
+            const result = await uploadFileWithFallback(optSlide.originalFile);
             if (result.success && result.url) {
               // Silently swap local blob URL with the real server URL in state
               setContent((prev) => {
@@ -181,7 +239,11 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
             });
             setUploadError(err.message || `Failed to upload ${optSlide.originalFile.name}`);
           } finally {
-            URL.revokeObjectURL(optSlide.imageUrl);
+            try {
+              URL.revokeObjectURL(optSlide.imageUrl);
+            } catch (revErr) {
+              // ignore
+            }
           }
         })
       );
@@ -192,7 +254,9 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       setUploadError(err.message || "Failed to process some or all uploads.");
     } finally {
       setUploadingSlide(false);
-      e.target.value = "";
+      if (inputEl) {
+        inputEl.value = "";
+      }
     }
   };
 
@@ -200,22 +264,29 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
     e: React.ChangeEvent<HTMLInputElement>,
     target: "portfolio-media" | "portfolio-thumbnail" | "hero-video" | "about-photo" | "stats-bg" | "philosophy-slide" | "review-left" | "review-right" | "philosophy-bg"
   ) => {
-    const file = e.target.files?.[0];
+    const inputEl = e.target;
+    const file = inputEl?.files?.[0];
     if (!file) return;
 
     setUploadError("");
 
     // Safeguard check
-    const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB limit
+    const MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1000 MB limit
     if (file.size > MAX_FILE_SIZE) {
       setUploadError(
-        `File is too large (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a file smaller than 500 MB.`
+        `File is too large (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a file smaller than 1000 MB.`
       );
       return;
     }
 
-    // 1. Create a local optimistic blob URL for high speed instant feedback
-    const localUrl = URL.createObjectURL(file);
+    // 1. Create a local optimistic blob URL with safe fallback for sandboxed iframe environments
+    let localUrl = "";
+    try {
+      localUrl = URL.createObjectURL(file);
+    } catch (createUrlErr) {
+      console.warn("URL.createObjectURL failed (sandboxed iframe security restriction). Skipping optimistic preview.", createUrlErr);
+    }
+
     const fType = file.type || "";
     const fName = file.name || "";
     const isVideo = fType.startsWith("video/") || fName.endsWith(".mp4") || fName.endsWith(".webm") || fName.endsWith(".mov");
@@ -232,45 +303,61 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       .trim();
 
     // 2. Optimistically update local UI states instantly!
-    if (target === "portfolio-thumbnail") {
-      setNewItem((prev) => ({ ...prev, thumbnail: localUrl }));
-    } else if (target === "review-left") {
-      setNewReview((prev) => ({ ...prev, leftImage: localUrl }));
-    } else if (target === "review-right") {
-      setNewReview((prev) => ({ ...prev, rightImage: localUrl }));
-    } else if (target === "portfolio-media") {
-      setNewItem((prev) => ({
-        ...prev,
-        mediaUrl: localUrl,
-        mediaType: isVideo ? "video" : "image",
-        title: cleanTitle,
-      }));
-    } else if (target === "hero-video") {
-      setContent((prev) => ({
-        ...prev,
-        hero: { ...prev.hero, videoUrl: localUrl },
-      }));
-    } else if (target === "about-photo") {
-      setContent((prev) => ({
-        ...prev,
-        about: { ...prev.about, photoUrl: localUrl },
-      }));
-    } else if (target === "philosophy-bg") {
-      setContent((prev) => ({
-        ...prev,
-        about: { ...prev.about, philosophyBgUrl: localUrl },
-      }));
-    } else if (target === "stats-bg") {
-      setContent((prev) => ({
-        ...prev,
-        stats: { ...prev.stats, backgroundUrl: localUrl },
-      }));
-    } else if (target === "philosophy-slide") {
-      setNewSlide((prev) => ({
-        ...prev,
-        imageUrl: localUrl,
-        title: prev.title || cleanTitle.toUpperCase(),
-      }));
+    if (localUrl) {
+      if (target === "portfolio-thumbnail") {
+        setNewItem((prev) => ({ ...prev, thumbnail: localUrl }));
+      } else if (target === "review-left") {
+        setNewReview((prev) => ({ ...prev, leftImage: localUrl }));
+      } else if (target === "review-right") {
+        setNewReview((prev) => ({ ...prev, rightImage: localUrl }));
+      } else if (target === "portfolio-media") {
+        setNewItem((prev) => ({
+          ...prev,
+          mediaUrl: localUrl,
+          mediaType: isVideo ? "video" : "image",
+          title: cleanTitle,
+        }));
+      } else if (target === "hero-video") {
+        setContent((prev) => ({
+          ...prev,
+          hero: { ...(prev.hero || {}), videoUrl: localUrl },
+        }));
+      } else if (target === "about-photo") {
+        setContent((prev) => ({
+          ...prev,
+          about: { ...(prev.about || {}), photoUrl: localUrl },
+        }));
+      } else if (target === "philosophy-bg") {
+        setContent((prev) => ({
+          ...prev,
+          about: { ...(prev.about || {}), philosophyBgUrl: localUrl },
+        }));
+      } else if (target === "stats-bg") {
+        setContent((prev) => ({
+          ...prev,
+          stats: { ...(prev.stats || {}), backgroundUrl: localUrl },
+        }));
+      } else if (target === "philosophy-slide") {
+        setNewSlide((prev) => ({
+          ...prev,
+          imageUrl: localUrl,
+          title: prev.title || cleanTitle.toUpperCase(),
+        }));
+      }
+    } else {
+      // Bypassed optimistic URL but still update textual fields and media types where possible
+      if (target === "portfolio-media") {
+        setNewItem((prev) => ({
+          ...prev,
+          mediaType: isVideo ? "video" : "image",
+          title: cleanTitle,
+        }));
+      } else if (target === "philosophy-slide") {
+        setNewSlide((prev) => ({
+          ...prev,
+          title: prev.title || cleanTitle.toUpperCase(),
+        }));
+      }
     }
 
     if (target === "portfolio-media") setUploadingMedia(true);
@@ -284,54 +371,41 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
     else if (target === "review-right") setUploadingReviewRight(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errResult = await response.json().catch(() => ({}));
-        throw new Error(errResult.error || "Server upload failed.");
-      }
-
-      const result = await response.json();
+      const result = await uploadFileWithFallback(file);
       if (result.success && result.url) {
         const uploadedUrl = result.url;
 
         // Swap the optimistic localUrl with the real server URL in state
         if (target === "portfolio-thumbnail") {
-          setNewItem((prev) => ({ ...prev, thumbnail: prev.thumbnail === localUrl ? uploadedUrl : prev.thumbnail }));
+          setNewItem((prev) => ({ ...prev, thumbnail: !localUrl || prev.thumbnail === localUrl ? uploadedUrl : prev.thumbnail }));
         } else if (target === "review-left") {
-          setNewReview((prev) => ({ ...prev, leftImage: prev.leftImage === localUrl ? uploadedUrl : prev.leftImage }));
+          setNewReview((prev) => ({ ...prev, leftImage: !localUrl || prev.leftImage === localUrl ? uploadedUrl : prev.leftImage }));
         } else if (target === "review-right") {
-          setNewReview((prev) => ({ ...prev, rightImage: prev.rightImage === localUrl ? uploadedUrl : prev.rightImage }));
+          setNewReview((prev) => ({ ...prev, rightImage: !localUrl || prev.rightImage === localUrl ? uploadedUrl : prev.rightImage }));
         } else if (target === "portfolio-media") {
-          setNewItem((prev) => ({ ...prev, mediaUrl: prev.mediaUrl === localUrl ? uploadedUrl : prev.mediaUrl }));
+          setNewItem((prev) => ({ ...prev, mediaUrl: !localUrl || prev.mediaUrl === localUrl ? uploadedUrl : prev.mediaUrl }));
         } else if (target === "hero-video") {
           setContent((prev) => ({
             ...prev,
-            hero: { ...prev.hero, videoUrl: prev.hero.videoUrl === localUrl ? uploadedUrl : prev.hero.videoUrl },
+            hero: { ...(prev.hero || {}), videoUrl: !localUrl || prev.hero?.videoUrl === localUrl ? uploadedUrl : (prev.hero?.videoUrl || "") },
           }));
         } else if (target === "about-photo") {
           setContent((prev) => ({
             ...prev,
-            about: { ...prev.about, photoUrl: prev.about?.photoUrl === localUrl ? uploadedUrl : prev.about?.photoUrl },
+            about: { ...(prev.about || {}), photoUrl: !localUrl || prev.about?.photoUrl === localUrl ? uploadedUrl : (prev.about?.photoUrl || "") },
           }));
         } else if (target === "philosophy-bg") {
           setContent((prev) => ({
             ...prev,
-            about: { ...prev.about, philosophyBgUrl: prev.about?.philosophyBgUrl === localUrl ? uploadedUrl : prev.about?.philosophyBgUrl },
+            about: { ...(prev.about || {}), philosophyBgUrl: !localUrl || prev.about?.philosophyBgUrl === localUrl ? uploadedUrl : (prev.about?.philosophyBgUrl || "") },
           }));
         } else if (target === "stats-bg") {
           setContent((prev) => ({
             ...prev,
-            stats: { ...prev.stats, backgroundUrl: prev.stats?.backgroundUrl === localUrl ? uploadedUrl : prev.stats?.backgroundUrl },
+            stats: { ...(prev.stats || {}), backgroundUrl: !localUrl || prev.stats?.backgroundUrl === localUrl ? uploadedUrl : (prev.stats?.backgroundUrl || "") },
           }));
         } else if (target === "philosophy-slide") {
-          setNewSlide((prev) => ({ ...prev, imageUrl: prev.imageUrl === localUrl ? uploadedUrl : prev.imageUrl }));
+          setNewSlide((prev) => ({ ...prev, imageUrl: !localUrl || prev.imageUrl === localUrl ? uploadedUrl : prev.imageUrl }));
         }
       } else {
         throw new Error("Unable to load asset content.");
@@ -352,28 +426,34 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       } else if (target === "hero-video") {
         setContent((prev) => ({
           ...prev,
-          hero: { ...prev.hero, videoUrl: prev.hero.videoUrl === localUrl ? "" : prev.hero.videoUrl },
+          hero: { ...(prev.hero || {}), videoUrl: prev.hero?.videoUrl === localUrl ? "" : (prev.hero?.videoUrl || "") },
         }));
       } else if (target === "about-photo") {
         setContent((prev) => ({
           ...prev,
-          about: { ...prev.about, photoUrl: prev.about?.photoUrl === localUrl ? "" : prev.about?.photoUrl },
+          about: { ...(prev.about || {}), photoUrl: prev.about?.photoUrl === localUrl ? "" : (prev.about?.photoUrl || "") },
         }));
       } else if (target === "philosophy-bg") {
         setContent((prev) => ({
           ...prev,
-          about: { ...prev.about, philosophyBgUrl: prev.about?.philosophyBgUrl === localUrl ? "" : prev.about?.philosophyBgUrl },
+          about: { ...(prev.about || {}), philosophyBgUrl: prev.about?.philosophyBgUrl === localUrl ? "" : (prev.about?.philosophyBgUrl || "") },
         }));
       } else if (target === "stats-bg") {
         setContent((prev) => ({
           ...prev,
-          stats: { ...prev.stats, backgroundUrl: prev.stats?.backgroundUrl === localUrl ? "" : prev.stats?.backgroundUrl },
+          stats: { ...(prev.stats || {}), backgroundUrl: prev.stats?.backgroundUrl === localUrl ? "" : (prev.stats?.backgroundUrl || "") },
         }));
       } else if (target === "philosophy-slide") {
         setNewSlide((prev) => ({ ...prev, imageUrl: prev.imageUrl === localUrl ? "" : prev.imageUrl }));
       }
     } finally {
-      URL.revokeObjectURL(localUrl);
+      if (localUrl) {
+        try {
+          URL.revokeObjectURL(localUrl);
+        } catch (revError) {
+          // ignore
+        }
+      }
       if (target === "portfolio-media") setUploadingMedia(false);
       else if (target === "portfolio-thumbnail") setUploadingThumbnail(false);
       else if (target === "hero-video") setUploadingHero(false);
@@ -383,7 +463,9 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
       else if (target === "philosophy-slide") setUploadingSlide(false);
       else if (target === "review-left") setUploadingReviewLeft(false);
       else if (target === "review-right") setUploadingReviewRight(false);
-      e.target.value = "";
+      if (inputEl) {
+        inputEl.value = "";
+      }
     }
   };
 
@@ -484,7 +566,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
   const handleServiceChange = (id: string, field: keyof ServiceItem, value: any) => {
     setContent((prev) => ({
       ...prev,
-      services: prev.services.map((srv) => (srv.id === id ? { ...srv, [field]: value } : srv)),
+      services: (prev.services || []).map((srv) => (srv.id === id ? { ...srv, [field]: value } : srv)),
     }));
   };
 
@@ -545,7 +627,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
 
     setContent((prev) => ({
       ...prev,
-      portfolio: [item, ...prev.portfolio],
+      portfolio: [item, ...(prev.portfolio || [])],
     }));
 
     // Reset portfolio form fields
@@ -561,7 +643,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
   const handleDeletePortfolioItem = (id: string) => {
     setContent((prev) => ({
       ...prev,
-      portfolio: prev.portfolio.filter((item) => item.id !== id),
+      portfolio: (prev.portfolio || []).filter((item) => item.id !== id),
     }));
   };
 
@@ -826,20 +908,21 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                       placeholder="E.g. direct mp4 URL"
                       className="w-full bg-white border border-zinc-200 rounded-l px-3 py-2 text-sm text-luxury-black focus:outline-none focus:border-gold font-mono min-w-0"
                     />
-                    <label className="bg-zinc-100 hover:bg-zinc-200 border-y border-r border-zinc-200 rounded-r px-4 py-2 text-xs text-zinc-700 cursor-pointer flex items-center space-x-1.5 transition-all self-stretch whitespace-nowrap font-medium">
+                    <label htmlFor="hero-video-upload" className="bg-zinc-100 hover:bg-zinc-200 border-y border-r border-zinc-200 rounded-r px-4 py-2 text-xs text-zinc-700 cursor-pointer flex items-center space-x-1.5 transition-all self-stretch whitespace-nowrap font-medium">
                       {uploadingHero ? (
                         <Loader2 className="w-4 h-4 animate-spin text-gold" />
                       ) : (
                         <Upload className="w-4 h-4 text-zinc-500" />
                       )}
                       <span className="text-[10px] uppercase tracking-wider">{uploadingHero ? "Uploading..." : "Upload Video"}</span>
-                      <input
-                        type="file"
-                        accept="video/*"
-                        onChange={(e) => handleFileUpload(e, "hero-video")}
-                        className="hidden"
-                      />
                     </label>
+                    <input
+                      id="hero-video-upload"
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => handleFileUpload(e, "hero-video")}
+                      className="sr-only"
+                    />
                   </div>
                   <p className="text-[10px] text-zinc-400 mt-1 font-medium">Please provide a high-quality direct link to an MP4 video, or upload a video directly from your device.</p>
                 </div>
@@ -1021,7 +1104,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                     <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold block">
                       Current Slides in Philosophy Catalog ({content.about?.philosophySlides?.length || 0})
                     </span>
-                    {(!content.about?.philosophySlides || content.about.philosophySlides.length === 0) ? (
+                    {(!content.about?.philosophySlides || content.about?.philosophySlides?.length === 0) ? (
                       <p className="text-xs text-zinc-400 italic">No custom slides added yet. The system will fall back to showing the main Story Thumbnail.</p>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1222,6 +1305,16 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                         placeholder="E.g. https://... image.jpg or video.mp4"
                         className="w-full bg-white border border-zinc-200 rounded-l px-2.5 py-1.5 text-xs text-luxury-black focus:outline-none focus:border-gold font-mono min-w-0"
                       />
+                      {newItem.mediaUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setNewItem((prev) => ({ ...prev, mediaUrl: "", mediaType: "image" }))}
+                          className="bg-red-50 hover:bg-red-100 border-y border-r border-zinc-200 px-2.5 text-red-600 flex items-center justify-center transition-all self-stretch cursor-pointer"
+                          title="Clear media selection"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <label htmlFor="portfolio-media-upload" className="bg-zinc-100 hover:bg-zinc-200 border-y border-r border-zinc-200 rounded-r px-3 py-1.5 text-xs text-zinc-700 cursor-pointer flex items-center space-x-1 transition-all self-stretch whitespace-nowrap font-medium">
                         {uploadingMedia ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-gold" />
@@ -1260,6 +1353,16 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                         placeholder="E.g. cover photo URL"
                         className="w-full bg-white border border-zinc-200 rounded-l px-2.5 py-1.5 text-xs text-luxury-black focus:outline-none focus:border-gold font-mono min-w-0"
                       />
+                      {newItem.thumbnail && (
+                        <button
+                          type="button"
+                          onClick={() => setNewItem((prev) => ({ ...prev, thumbnail: "" }))}
+                          className="bg-red-50 hover:bg-red-100 border-y border-r border-zinc-200 px-2.5 text-red-600 flex items-center justify-center transition-all self-stretch cursor-pointer"
+                          title="Clear cover selection"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <label htmlFor="portfolio-thumbnail-upload" className="bg-zinc-100 hover:bg-zinc-200 border-y border-r border-zinc-200 rounded-r px-3 py-1.5 text-xs text-zinc-700 cursor-pointer flex items-center space-x-1 transition-all self-stretch whitespace-nowrap font-medium">
                         {uploadingThumbnail ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-gold" />
@@ -1302,7 +1405,7 @@ export default function AdminPanel({ currentContent, onSaveContent, onClose }: A
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 text-zinc-700">
-                    {content.portfolio.map((item) => (
+                    {(content.portfolio || []).map((item) => (
                       <tr key={item.id} className="hover:bg-zinc-50">
                         <td className="p-3 font-serif text-sm text-luxury-black font-medium">{item.title}</td>
                         <td className="p-3 font-mono">{item.category}</td>

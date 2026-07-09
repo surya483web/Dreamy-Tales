@@ -8,7 +8,7 @@ interface TermsModalProps {
   brandName?: string;
 }
 
-export default function TermsModal({ isOpen, onClose, brandName = "OMBRE" }: TermsModalProps) {
+export default function TermsModal({ isOpen, onClose, brandName = "DTSTUDIO" }: TermsModalProps) {
   // Prevent body scroll when modal is open
   React.useEffect(() => {
     if (isOpen) {
