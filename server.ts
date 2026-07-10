@@ -6,6 +6,13 @@ import { createServer as createViteServer } from "vite";
 import { StudioContent, Inquiry } from "./src/types.js";
 import multer from "multer";
 import convert from "heic-convert";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { getApps as getAdminApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getStorage as getAdminStorage, getDownloadURL as getAdminDownloadURL } from "firebase-admin/storage";
+
+const execPromise = promisify(exec);
 
 const app = express();
 const PORT = 3000;
@@ -159,6 +166,74 @@ const defaultContent: StudioContent = {
   ],
 };
 
+// Initialize Firebase
+const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+let firestoreDb: any = null;
+let firestoreStorage: any = null;
+
+if (fs.existsSync(firebaseConfigPath)) {
+  try {
+    const config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+    
+    // Initialize Admin SDK for Firestore and Storage to bypass rules on the server
+    if (!getAdminApps().length) {
+      initializeAdminApp({
+        projectId: config.projectId,
+        storageBucket: config.storageBucket,
+      });
+    }
+    const dbId = config.firestoreDatabaseId;
+    firestoreDb = dbId && dbId !== "(default)" ? getFirestore(getAdminApps()[0], dbId) : getFirestore();
+    firestoreStorage = getAdminStorage().bucket(config.storageBucket);
+    
+    console.log("Firebase Admin SDK Firestore and Storage initialized on backend successfully with databaseId:", dbId || "(default)");
+  } catch (err) {
+    console.error("Failed to initialize Firebase on backend server:", err);
+  }
+}
+
+// Helper to upload a local file to Firebase Storage and return its public URL
+async function uploadLocalFileToFirebase(localFilePath: string, originalName: string, mimeType: string): Promise<string> {
+  if (!firestoreStorage) {
+    throw new Error("Firebase Storage is not initialized on the server.");
+  }
+  try {
+    const fileBuffer = fs.readFileSync(localFilePath);
+    const fileExt = path.extname(originalName).replace(".", "") || "bin";
+    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+    const folder = mimeType.startsWith("video/") ? "videos" : "photos";
+    const fileDestination = `${folder}/${uniqueFileName}`;
+    
+    console.log(`Uploading ${originalName} to Firebase Storage as ${fileDestination} using Admin SDK...`);
+    
+    const fileRef = firestoreStorage.file(fileDestination);
+    const downloadToken = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    
+    await fileRef.save(fileBuffer, {
+      metadata: {
+        contentType: mimeType,
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken,
+        },
+      },
+    });
+    
+    let downloadUrl = "";
+    try {
+      downloadUrl = await getAdminDownloadURL(fileRef);
+    } catch (adminUrlErr) {
+      console.warn(`getAdminDownloadURL failed for ${originalName}, falling back to manual URL formatting:`, adminUrlErr);
+      downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${firestoreStorage.name}/o/${encodeURIComponent(fileDestination)}?alt=media&token=${downloadToken}`;
+    }
+    
+    console.log(`Successfully uploaded ${originalName} to Firebase Storage! URL: ${downloadUrl}`);
+    return downloadUrl;
+  } catch (err) {
+    console.error(`Failed to upload ${originalName} to Firebase Storage:`, err);
+    throw err;
+  }
+}
+
 // Initialize content.json
 if (!fs.existsSync(CONTENT_FILE)) {
   fs.writeFileSync(CONTENT_FILE, JSON.stringify(defaultContent, null, 2));
@@ -167,6 +242,55 @@ if (!fs.existsSync(CONTENT_FILE)) {
 // Initialize inquiries.json
 if (!fs.existsSync(INQUIRIES_FILE)) {
   fs.writeFileSync(INQUIRIES_FILE, JSON.stringify([], null, 2));
+}
+
+// Function to hydrate local cache from Firestore on startup
+async function syncFromFirestore() {
+  if (!firestoreDb) {
+    console.log("Firestore DB not available, skipping initial hydration.");
+    return;
+  }
+  try {
+    console.log("Starting initial hydration of content.json and inquiries.json from Firestore...");
+    
+    // Hydrate Content
+    const contentRef = firestoreDb.collection("settings").doc("content");
+    const contentSnap = await contentRef.get();
+    if (contentSnap.exists) {
+      const dbContent = contentSnap.data() as StudioContent;
+      // Merge dbContent with defaultContent to avoid missing sections/keys
+      const merged: StudioContent = {
+        ...defaultContent,
+        ...dbContent,
+        details: { ...defaultContent.details, ...dbContent.details },
+        hero: { ...defaultContent.hero, ...dbContent.hero },
+        about: { ...defaultContent.about, ...dbContent.about },
+        stats: { ...defaultContent.stats, ...dbContent.stats },
+        portfolio: dbContent.portfolio || defaultContent.portfolio,
+        services: dbContent.services || defaultContent.services,
+        reviews: dbContent.reviews !== undefined ? dbContent.reviews : defaultContent.reviews,
+      };
+      fs.writeFileSync(CONTENT_FILE, JSON.stringify(merged, null, 2));
+      console.log("Hydrated content.json from Firestore successfully.");
+    } else {
+      console.log("No content found in Firestore. Uploading defaultContent as initial fallback...");
+      await contentRef.set(defaultContent);
+    }
+
+    // Hydrate Inquiries
+    const inquiriesRef = firestoreDb.collection("settings").doc("inquiries");
+    const inquiriesSnap = await inquiriesRef.get();
+    if (inquiriesSnap.exists) {
+      const data = inquiriesSnap.data().list || [];
+      fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(data, null, 2));
+      console.log(`Hydrated inquiries.json with ${data.length} records from Firestore successfully.`);
+    } else {
+      console.log("No inquiries found in Firestore. Creating empty collection...");
+      await inquiriesRef.set({ list: [] });
+    }
+  } catch (err) {
+    console.error("Failed to sync from Firestore on startup:", err);
+  }
 }
 
 // Helper to read content
@@ -182,6 +306,11 @@ const readContent = (): StudioContent => {
 // Helper to write content
 const writeContent = (content: StudioContent) => {
   fs.writeFileSync(CONTENT_FILE, JSON.stringify(content, null, 2));
+  if (firestoreDb) {
+    firestoreDb.collection("settings").doc("content").set(content)
+      .then(() => console.log("Saved content to Firestore settings/content successfully."))
+      .catch((err: any) => console.error("Failed to save content to Firestore settings/content:", err));
+  }
 };
 
 // Helper to read inquiries
@@ -197,6 +326,11 @@ const readInquiries = (): Inquiry[] => {
 // Helper to write inquiries
 const writeInquiries = (inquiries: Inquiry[]) => {
   fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(inquiries, null, 2));
+  if (firestoreDb) {
+    firestoreDb.collection("settings").doc("inquiries").set({ list: inquiries })
+      .then(() => console.log("Saved inquiries to Firestore settings/inquiries successfully."))
+      .catch((err: any) => console.error("Failed to save inquiries to Firestore settings/inquiries:", err));
+  }
 };
 
 // --- API Endpoints ---
@@ -217,6 +351,19 @@ const upload = multer({
   limits: { fileSize: 1000 * 1024 * 1024 } // 1000MB
 });
 
+app.get("/api/firebase-config", (req, res) => {
+  try {
+    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    if (!fs.existsSync(configPath)) {
+      return res.status(404).json({ error: "Firebase configuration file not found on server." });
+    }
+    const configData = fs.readFileSync(configPath, "utf-8");
+    res.json(JSON.parse(configData));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to load Firebase config." });
+  }
+});
+
 // Upload endpoint for files from local device
 app.post("/api/upload", (req, res, next) => {
   upload.single("file")(req, res, (err: any) => {
@@ -231,6 +378,8 @@ app.post("/api/upload", (req, res, next) => {
     // 1. Check if standard multipart/form-data upload was used
     if (req.file) {
       const ext = path.extname(req.file.filename).toLowerCase();
+      
+      // Handle image conversion for HEIC/HEIF
       if (ext === ".heic" || ext === ".heif") {
         try {
           console.log(`HEIC upload detected: ${req.file.filename}. Converting to JPEG...`);
@@ -254,9 +403,29 @@ app.post("/api/upload", (req, res, next) => {
             console.warn("Failed to delete original HEIC file:", err);
           }
           
+          // Upload converted JPEG to Firebase Storage
+          let firebaseURL = "";
+          let useLocalFallback = false;
+          try {
+            firebaseURL = await uploadLocalFileToFirebase(newPath, newFilename, "image/jpeg");
+          } catch (uploadErr) {
+            console.warn("Firebase Storage upload failed for HEIC, falling back to local static serving:", uploadErr);
+            useLocalFallback = true;
+            firebaseURL = `/uploads/${newFilename}`;
+          }
+          
+          // Clean up local converted file ONLY if successfully uploaded to Firebase Storage
+          if (!useLocalFallback) {
+            try {
+              fs.unlinkSync(newPath);
+            } catch (err) {
+              console.warn("Failed to clean up local converted file:", err);
+            }
+          }
+          
           return res.json({
             success: true,
-            url: `/uploads/${newFilename}`,
+            url: firebaseURL,
           });
         } catch (convErr: any) {
           console.error("HEIC conversion failed, falling back to original:", convErr);
@@ -264,9 +433,89 @@ app.post("/api/upload", (req, res, next) => {
         }
       }
 
+      // --- HIGH SPEED VIDEO TRANSCODING & COMPRESSION ENGINE ---
+      const videoExtensions = [".mov", ".mp4", ".webm", ".avi", ".mkv", ".3gp", ".qt", ".m4v", ".wmv", ".flv", ".ogv"];
+      const isVideoFile = req.file.mimetype.startsWith("video/") || videoExtensions.includes(ext);
+      
+      if (isVideoFile) {
+        try {
+          console.log(`Video upload detected: ${req.file.filename} (MIME: ${req.file.mimetype}). Starting H.264 high-speed web compression...`);
+          
+          const originalFilename = req.file.filename;
+          const newFilename = originalFilename.substring(0, originalFilename.length - ext.length) + "_web.mp4";
+          const newPath = path.join(UPLOADS_DIR, newFilename);
+          
+          // FFmpeg command optimized for:
+          // 1. HIGH-SPEED TRANSCODING (-preset superfast)
+          // 2. GREAT COMPRESSION / TINY FILE SIZE (-crf 26) - this means very high download/stream speeds
+          // 3. COMPLETE WEB PLAYBACK COMPATIBILITY (-vcodec libx264 -pix_fmt yuv420p) - visible and playable on ALL browsers/devices
+          // 4. INSTANT PLAYBACK START (-movflags +faststart) - starts playing immediately before fully downloaded
+          const command = `ffmpeg -y -i "${req.file.path}" -vcodec libx264 -pix_fmt yuv420p -profile:v high -level 4.1 -preset superfast -crf 26 -acodec aac -b:a 128k -movflags +faststart "${newPath}"`;
+          
+          console.log(`Executing FFmpeg: ${command}`);
+          await execPromise(command);
+          console.log(`FFmpeg compression completed! Output file saved to ${newPath}`);
+          
+          // Delete original uncompressed/raw file to save server space
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (err) {
+            console.warn("Failed to delete original uncompressed video file:", err);
+          }
+          
+          // Upload compressed video to Firebase Storage
+          let firebaseURL = "";
+          let useLocalFallback = false;
+          try {
+            firebaseURL = await uploadLocalFileToFirebase(newPath, newFilename, "video/mp4");
+          } catch (uploadErr) {
+            console.warn("Firebase Storage upload failed for video, falling back to local static serving:", uploadErr);
+            useLocalFallback = true;
+            firebaseURL = `/uploads/${newFilename}`;
+          }
+          
+          // Clean up local compressed video ONLY if successfully uploaded to Firebase Storage
+          if (!useLocalFallback) {
+            try {
+              fs.unlinkSync(newPath);
+            } catch (err) {
+              console.warn("Failed to clean up local compressed video:", err);
+            }
+          }
+          
+          return res.json({
+            success: true,
+            url: firebaseURL,
+          });
+        } catch (transcodeErr: any) {
+          console.error("Video transcoding/compression failed, falling back to original:", transcodeErr);
+          // If transcoding failed, gracefully fall back to the original uploaded file so the upload never fails
+        }
+      }
+
+      // Upload standard file directly to Firebase Storage
+      let firebaseURL = "";
+      let useLocalFallback = false;
+      try {
+        firebaseURL = await uploadLocalFileToFirebase(req.file.path, req.file.originalname, req.file.mimetype);
+      } catch (uploadErr) {
+        console.warn("Firebase Storage upload failed for file, falling back to local static serving:", uploadErr);
+        useLocalFallback = true;
+        firebaseURL = `/uploads/${path.basename(req.file.path)}`;
+      }
+      
+      // Clean up temporary local file ONLY if successfully uploaded to Firebase Storage
+      if (!useLocalFallback) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (err) {
+          console.warn("Failed to delete temp local file:", err);
+        }
+      }
+      
       return res.json({
         success: true,
-        url: `/uploads/${req.file.filename}`,
+        url: firebaseURL,
       });
     }
 
@@ -300,9 +549,79 @@ app.post("/api/upload", (req, res, next) => {
 
       fs.writeFileSync(filePath, buffer);
 
+      // --- HIGH SPEED BASE64 VIDEO TRANSCODING & COMPRESSION ENGINE ---
+      const videoExtensions = [".mov", ".mp4", ".webm", ".avi", ".mkv", ".3gp", ".qt", ".m4v", ".wmv", ".flv", ".ogv"];
+      const isVideoFile = (fileType && fileType.startsWith("video/")) || videoExtensions.includes(ext);
+
+      if (isVideoFile) {
+        try {
+          const transFilename = `${baseName}_${Date.now()}_web.mp4`;
+          const transPath = path.join(UPLOADS_DIR, transFilename);
+          
+          console.log(`Base64 video upload detected. Starting H.264 high-speed web compression...`);
+          const command = `ffmpeg -y -i "${filePath}" -vcodec libx264 -pix_fmt yuv420p -profile:v high -level 4.1 -preset superfast -crf 26 -acodec aac -b:a 128k -movflags +faststart "${transPath}"`;
+          
+          await execPromise(command);
+          
+          // Delete original uncompressed temp file
+          try {
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            console.warn("Failed to delete original base64 video temp file:", err);
+          }
+
+          // Upload transcoded video to Firebase Storage
+          let firebaseURL = "";
+          let useLocalFallback = false;
+          try {
+            firebaseURL = await uploadLocalFileToFirebase(transPath, transFilename, "video/mp4");
+          } catch (uploadErr) {
+            console.warn("Firebase Storage upload failed for base64 video, falling back to local static serving:", uploadErr);
+            useLocalFallback = true;
+            firebaseURL = `/uploads/${transFilename}`;
+          }
+          
+          // Clean up local transcoded file ONLY if successfully uploaded to Firebase Storage
+          if (!useLocalFallback) {
+            try {
+              fs.unlinkSync(transPath);
+            } catch (err) {
+              console.warn("Failed to clean up local transcoded file:", err);
+            }
+          }
+
+          return res.json({
+            success: true,
+            url: firebaseURL,
+          });
+        } catch (transcodeErr) {
+          console.error("Base64 video transcoding/compression failed, falling back to original:", transcodeErr);
+        }
+      }
+
+      // Upload base64 file to Firebase Storage
+      let firebaseURL = "";
+      let useLocalFallback = false;
+      try {
+        firebaseURL = await uploadLocalFileToFirebase(filePath, fileName, fileType || "application/octet-stream");
+      } catch (uploadErr) {
+        console.warn("Firebase Storage upload failed for base64 file, falling back to local static serving:", uploadErr);
+        useLocalFallback = true;
+        firebaseURL = `/uploads/${uniqueFileName}`;
+      }
+      
+      // Clean up local temp file ONLY if successfully uploaded to Firebase Storage
+      if (!useLocalFallback) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (err) {
+          console.warn("Failed to delete base64 temp file:", err);
+        }
+      }
+
       return res.json({
         success: true,
-        url: `/uploads/${uniqueFileName}`,
+        url: firebaseURL,
       });
     }
 
@@ -375,13 +694,29 @@ app.get("/api/content", (req, res) => {
 // Update website dynamic content
 app.post("/api/content", (req, res) => {
   try {
-    const newContent = req.body as StudioContent;
-    if (!newContent.details || !newContent.hero || !newContent.about || !newContent.services || !newContent.portfolio) {
-      return res.status(400).json({ error: "Invalid content payload structure." });
+    const existingContent = readContent();
+    const newContent = req.body as Partial<StudioContent>;
+    
+    // Merge existing content with new content
+    const mergedContent: StudioContent = {
+      details: newContent.details || existingContent.details,
+      hero: newContent.hero || existingContent.hero,
+      about: newContent.about || existingContent.about,
+      portfolio: newContent.portfolio || existingContent.portfolio,
+      services: newContent.services || existingContent.services,
+      stats: newContent.stats || existingContent.stats,
+      reviews: newContent.reviews !== undefined ? newContent.reviews : existingContent.reviews,
+    };
+
+    // Validate that we have at least the critical structure
+    if (!mergedContent.details || !mergedContent.hero || !mergedContent.about || !mergedContent.portfolio) {
+      return res.status(400).json({ error: "Invalid content payload structure. Details, hero, about, and portfolio sections are required." });
     }
-    writeContent(newContent);
-    res.json({ success: true, message: "Content updated successfully!", content: newContent });
+
+    writeContent(mergedContent);
+    res.json({ success: true, message: "Content updated successfully!", content: mergedContent });
   } catch (err: any) {
+    console.error("Failed to update content on server:", err);
     res.status(500).json({ error: err.message || "Failed to update content." });
   }
 });
@@ -449,6 +784,9 @@ app.post("/api/inquiries/:id/status", (req, res) => {
 
 // Vite middleware integration for asset serving & compilation
 async function startServer() {
+  // Synchronize dynamic configuration from Firestore
+  await syncFromFirestore();
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

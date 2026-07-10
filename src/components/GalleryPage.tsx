@@ -254,7 +254,7 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
                   <div className="relative overflow-hidden aspect-[3/4] bg-zinc-50 shadow-sm">
                     {item.mediaType === "video" ? (
                       <div className="w-full h-full relative">
-                        {item.thumbnail && !item.thumbnail.endsWith(".mp4") && !item.thumbnail.endsWith(".webm") && !item.thumbnail.endsWith(".mov") ? (
+                        {item.thumbnail && !item.thumbnail.toLowerCase().match(/\.(mp4|webm|mov|m4v|ogv|qt|3gp|avi|mkv|wmv|flv)$/) ? (
                           <img
                             src={item.thumbnail}
                             alt={item.title}

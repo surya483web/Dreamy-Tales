@@ -221,7 +221,7 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
                   <div className="relative overflow-hidden aspect-[4/5] bg-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.1)] border border-black/5 transition-all duration-500 ease-out">
                     {item.mediaType === "video" ? (
                       <div className="w-full h-full relative">
-                        {item.thumbnail && !item.thumbnail.endsWith(".mp4") && !item.thumbnail.endsWith(".webm") && !item.thumbnail.endsWith(".mov") ? (
+                        {item.thumbnail && !item.thumbnail.toLowerCase().match(/\.(mp4|webm|mov|m4v|ogv|qt|3gp|avi|mkv|wmv|flv)$/) ? (
                           <img
                             src={item.thumbnail}
                             alt={item.title}

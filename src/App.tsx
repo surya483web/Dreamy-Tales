@@ -177,8 +177,7 @@ export default function App() {
   const handleSaveContent = async (newContent: StudioContent): Promise<boolean> => {
     try {
       // Optimistically update state first
-      setContent(newContent);
-      
+      setContent({ ...newContent });
       await saveLocalContent(newContent);
 
       const response = await fetch("/api/content", {
@@ -189,17 +188,21 @@ export default function App() {
         body: JSON.stringify(newContent),
       });
 
-      if (response.ok) {
-        const resData = await response.json();
-        if (resData.success) {
-          setContent(resData.content);
-          await saveLocalContent(resData.content);
-        }
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => ({}));
+        throw new Error(errorJson.error || `Server responded with status ${response.status}`);
       }
-      return true; // Return true as content was successfully updated locally & visually
-    } catch (err) {
-      console.warn("Server side persist failed, but layout is saved locally in browser:", err);
-      return true; // Return true to indicate successful fallback persistence
+
+      const resData = await response.json();
+      if (resData.success && resData.content) {
+        setContent({ ...resData.content });
+        await saveLocalContent(resData.content);
+      }
+      return true;
+    } catch (err: any) {
+      console.error("Server-side persist failed:", err);
+      // Re-throw so AdminPanel displays the precise error message
+      throw err;
     }
   };
 
