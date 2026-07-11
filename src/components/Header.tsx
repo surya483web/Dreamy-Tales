@@ -117,15 +117,6 @@ export default function Header({ onAdminClick, onTermsClick, isAdminMode, curren
           >
             <span>T&C</span>
           </button>
-          
-          {/* Admin Control Trigger */}
-          <button
-            onClick={onAdminClick}
-            className={`flex items-center space-x-2 px-5 py-2.5 bg-black hover:bg-zinc-800 text-white border border-black text-xs uppercase tracking-[0.15em] transition-all duration-300 cursor-pointer rounded-sm`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>{isAdminMode ? "Exit Panel" : "Admin Panel"}</span>
-          </button>
         </nav>
 
         {/* Mobile Controls Trigger */}
@@ -139,14 +130,6 @@ export default function Header({ onAdminClick, onTermsClick, isAdminMode, curren
             }`}
           >
             T&C
-          </button>
-
-          <button
-            onClick={onAdminClick}
-            className={`p-2 rounded-sm border bg-black text-white border-black`}
-            title="Admin Dashboard"
-          >
-            <Sliders className="w-4 h-4" />
           </button>
 
           <button

@@ -254,9 +254,6 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
 
                   {/* Centered Typography: Clean Uppercase Luxury Brand spacing */}
                   <div className="text-center mt-6">
-                    <h3 className="text-luxury-black font-sans text-xs sm:text-sm md:text-base uppercase tracking-[0.25em] font-light leading-snug">
-                      {item.title}
-                    </h3>
                   </div>
                 </motion.div>
               );
@@ -307,7 +304,6 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
                 <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-zinc-400">
                   {currentItem.mediaType === "video" ? "Cinematic Film" : "Photograph"}
                 </span>
-                <span className="font-serif text-xl mt-1 text-white">{currentItem.title}</span>
               </div>
               
               <div className="flex items-center space-x-3">
@@ -357,7 +353,7 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
                 ) : (
                   <img
                     src={currentItem.mediaUrl}
-                    alt={currentItem.title}
+                    alt="Portfolio item"
                     className="max-w-full max-h-[60vh] md:max-h-[75vh] object-contain"
                   />
                 )}

@@ -294,9 +294,6 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
                     <span className="text-[9px] uppercase tracking-[0.25em] text-zinc-400 block mb-1 font-sans">
                       {item.category}
                     </span>
-                    <h3 className="text-luxury-black font-sans text-xs uppercase tracking-[0.15em] font-medium truncate">
-                      {item.title}
-                    </h3>
                   </div>
                 </motion.div>
               ))}
@@ -331,7 +328,6 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
                 <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-zinc-400">
                   {currentItem.mediaType === "video" ? "Cinematic Film" : "Photograph"}
                 </span>
-                <span className="font-serif text-lg sm:text-xl mt-1 text-white truncate max-w-xs sm:max-w-md">{currentItem.title}</span>
               </div>
               
               <div className="flex items-center space-x-3">

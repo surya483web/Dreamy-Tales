@@ -47,7 +47,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [content, setContent] = useState<StudioContent>(currentContent);
   const [activeTab, setActiveTab] = useState<TabType>("inquiries");
   
-  // Save status states
+  // Debug navigation
+  React.useEffect(() => {
+    console.log("AdminPanel: activeTab changed to", activeTab);
+  }, [activeTab]);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [notification, setNotification] = useState<{
@@ -284,10 +287,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {/* Right Editor Workspace Panels */}
           <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-zinc-950 scroll-smooth">
-            {activeTab === "inquiries" && <InquiriesSection />}
-
+            {activeTab === "inquiries" && <InquiriesSection key="inquiries" />}
             {activeTab === "details" && (
               <DetailsSection
+                key="details"
                 initialDetails={content.details}
                 onSave={(data) => handleSectionSave("details", data)}
               />
@@ -295,6 +298,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {activeTab === "hero" && (
               <HeroSection
+                key="hero"
                 initialHero={content.hero}
                 onSave={(data) => handleSectionSave("hero", data)}
               />
@@ -302,6 +306,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {activeTab === "story" && (
               <StorySection
+                key="story"
                 initialAbout={content.about}
                 onSave={(data) => handleSectionSave("about", data)}
               />
@@ -309,6 +314,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {activeTab === "stats" && (
               <StatsSection
+                key="stats"
                 initialStats={content.stats}
                 onSave={(data) => handleSectionSave("stats", data)}
               />
@@ -316,6 +322,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {activeTab === "portfolio" && (
               <PortfolioSection
+                key="portfolio"
                 initialPortfolio={content.portfolio}
                 onSave={(data) => handleSectionSave("portfolio", data)}
               />
@@ -323,6 +330,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {activeTab === "reviews" && (
               <ReviewsSection
+                key="reviews"
                 initialReviews={content.reviews}
                 onSave={(data) => handleSectionSave("reviews", data)}
               />

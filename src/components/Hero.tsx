@@ -230,16 +230,6 @@ export default function Hero({ data, onReserveClick, isAdminMode }: HeroProps) {
 
       {/* Controls: Custom Video Select */}
       <div className="absolute bottom-12 left-6 md:left-12 z-30 flex items-center space-x-3">
-        {isAdminMode && (
-          <button
-            onClick={triggerFileSelect}
-            className="flex items-center space-x-3 bg-black hover:bg-zinc-850 text-white px-5 py-3 rounded-full text-[10px] uppercase tracking-[0.2em] transition-all duration-300 cursor-pointer border border-black"
-            title="Upload or change background video directly from your device"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Change Video</span>
-          </button>
-        )}
       </div>
     </section>
   );

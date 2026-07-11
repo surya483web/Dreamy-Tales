@@ -48,22 +48,36 @@ export const AdminMediaUpload: React.FC<AdminMediaUploadProps> = ({
     setError("");
     setUploading(true);
     setProgress(0);
+    console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
 
-    const MAX_SIZE = 1000 * 1024 * 1024; // 1000MB limit
+    // Validate video file types
+    if (file.type.startsWith("video/")) {
+      const validTypes = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
+      if (!validTypes.includes(file.type)) {
+        setError(`Unsupported video format: ${file.type}. Please use MP4, WebM, MOV, or AVI.`);
+        setUploading(false);
+        return;
+      }
+    }
+
+    const MAX_SIZE = 50 * 1024 * 1024; // 50MB limit
     if (file.size > MAX_SIZE) {
-      setError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Limit is 1000MB.`);
+      setError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Limit is 50MB.`);
       setUploading(false);
       return;
     }
 
     try {
-      const downloadUrl = await uploadToFirebaseStorage(file, (pct) => {
-        setProgress(pct);
+      const base64String = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
       });
-      onChange(downloadUrl);
+      onChange(base64String);
     } catch (err: any) {
-      console.error("Firebase Storage Upload Error:", err);
-      setError(err.message || "Failed to upload file to Firebase Storage.");
+      console.error("Base64 Conversion Error:", err);
+      setError(err.message || "Failed to process file.");
     } finally {
       setUploading(false);
     }
@@ -203,7 +217,9 @@ export const AdminMediaUpload: React.FC<AdminMediaUploadProps> = ({
               <div className="flex items-center gap-1 text-[10px] text-green-400 font-semibold uppercase tracking-wider">
                 <CheckCircle className="w-3 h-3" /> Live Active Link
               </div>
-              <p className="text-[9px] text-zinc-400 font-mono truncate select-all">{value}</p>
+              <p className="text-[9px] text-zinc-400 font-mono truncate select-all">
+                {value.startsWith("data:") ? "Base64 Data URI" : value}
+              </p>
             </div>
           </div>
         )}

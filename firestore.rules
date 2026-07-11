@@ -7,9 +7,9 @@ service cloud.firestore {
     }
 
     // Allow read/write access to settings documents ('content' and 'inquiries')
-    // because the backend server interacts with Firestore using client-side SDK configuration.
+    // because the backend server interacts with Firestore.
     match /settings/{document} {
-      allow read, write: if document in ['content', 'inquiries'];
+      allow read, write: if true;
     }
   }
 }

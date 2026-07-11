@@ -353,7 +353,12 @@ const upload = multer({
 
 app.get("/api/firebase-config", (req, res) => {
   try {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    let configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    if (!fs.existsSync(configPath)) {
+        // Fallback for production bundling if running from dist/
+        configPath = path.join(process.cwd(), "../firebase-applet-config.json");
+    }
+    
     if (!fs.existsSync(configPath)) {
       return res.status(404).json({ error: "Firebase configuration file not found on server." });
     }

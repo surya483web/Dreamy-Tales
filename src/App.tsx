@@ -8,6 +8,7 @@ import Portfolio from "./components/Portfolio";
 import Stats from "./components/Stats";
 import ClientPraise from "./components/ClientPraise";
 import Contact from "./components/Contact";
+import AdminLogin from "./components/AdminLogin";
 import AdminPanel from "./components/AdminPanel";
 import GalleryPage from "./components/GalleryPage";
 import { Loader2 } from "lucide-react";
@@ -22,6 +23,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
@@ -105,6 +107,9 @@ export default function App() {
                         window.location.hash.toLowerCase() === "#dtstudio";
       if (isDTStudio) {
         setIsAdminOpen(true);
+      } else {
+        setIsAdminOpen(false);
+        setIsAdminAuthenticated(false);
       }
     };
     checkDTStudioPath();
@@ -258,11 +263,15 @@ export default function App() {
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="w-full min-h-screen bg-zinc-50"
         >
-          <AdminPanel
-            currentContent={content}
-            onSaveContent={handleSaveContent}
-            onClose={() => setIsAdminOpen(false)}
-          />
+          {isAdminAuthenticated ? (
+            <AdminPanel
+              currentContent={content}
+              onSaveContent={handleSaveContent}
+              onClose={() => setIsAdminOpen(false)}
+            />
+          ) : (
+            <AdminLogin onLogin={() => setIsAdminAuthenticated(true)} />
+          )}
         </motion.div>
       ) : (
         <motion.div

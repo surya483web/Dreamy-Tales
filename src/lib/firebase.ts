@@ -9,11 +9,14 @@ async function initFirebase() {
     return { app: firebaseApp, storage: firebaseStorage };
   }
 
-  const response = await fetch("/api/firebase-config");
-  if (!response.ok) {
-    throw new Error("Failed to load Firebase configuration from server.");
-  }
-  const config = await response.json();
+  const config = {
+    projectId: "ai-studio-applet-webapp-38096",
+    appId: "1:196018550705:web:50397ed247010f1c362f90",
+    apiKey: "AIzaSyBFZcgS9Z20I29HYo9G3yNZU97ocjMvh3A",
+    authDomain: "ai-studio-applet-webapp-38096.firebaseapp.com",
+    storageBucket: "ai-studio-applet-webapp-38096.firebasestorage.app",
+    messagingSenderId: "196018550705",
+  };
 
   if (getApps().length === 0) {
     firebaseApp = initializeApp(config);
@@ -112,113 +115,77 @@ async function uploadDirectToFirebaseStorage(
   file: File,
   onProgress?: (progress: number) => void
 ): Promise<string> {
-  const { storage } = await initFirebase();
-  let fileToUpload = file;
-  if (file.type.startsWith("image/") && file.type !== "image/gif") {
-    try {
-      fileToUpload = await compressAndOptimizeImage(file);
-    } catch (e) {
-      console.warn("Client side compression failed during direct Firebase upload", e);
-    }
-  }
-  const fileExt = fileToUpload.name.split(".").pop() || "bin";
-  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+  console.log(`Starting Firebase Storage upload: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
   
-  const folder = fileToUpload.type.startsWith("video/") ? "videos" : "photos";
-  const storageRef = ref(storage, `${folder}/${fileName}`);
-  
-  const uploadTask = uploadBytesResumable(storageRef, fileToUpload);
-  
-  return new Promise((resolve, reject) => {
-    uploadTask.on(
-      "state_changed",
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        if (onProgress) {
-          onProgress(Math.round(progress));
-        }
-      },
-      (error) => {
-        reject(error);
-      },
-      async () => {
-        const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-        resolve(downloadUrl);
+  try {
+    console.log("Initializing Firebase...");
+    const { storage } = await initFirebase();
+    console.log("Firebase initialized. Bucket:", storage.app.options.storageBucket);
+    
+    let fileToUpload = file;
+    
+    // Only compress images, NOT videos
+    if (file.type.startsWith("image/") && file.type !== "image/gif") {
+      try {
+        fileToUpload = await compressAndOptimizeImage(file);
+        console.log(`Image compressed: ${fileToUpload.name} (${(fileToUpload.size / 1024 / 1024).toFixed(2)} MB)`);
+      } catch (e) {
+        console.warn("Client side image compression failed, using original file", e);
       }
-    );
-  });
+    }
+
+    const fileExt = fileToUpload.name.split(".").pop() || "bin";
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+    const folder = fileToUpload.type.startsWith("video/") ? "videos" : "photos";
+    const path = `${folder}/${fileName}`;
+    console.log("Creating storage reference for path:", path);
+    const storageRef = ref(storage, path);
+    console.log("Storage reference created:", storageRef.fullPath);
+    
+    console.log(`Creating upload task for ${fileToUpload.name} to path: ${path}`);
+    const uploadTask = uploadBytesResumable(storageRef, fileToUpload);
+    console.log("Upload task created:", uploadTask);
+    
+    return new Promise((resolve, reject) => {
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const progress = snapshot.totalBytes > 0 
+            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
+            : 0;
+          console.log(`Upload state: ${snapshot.state}, Progress: ${Math.round(progress)}% (${snapshot.bytesTransferred}/${snapshot.totalBytes} bytes)`);
+          
+          if (onProgress) {
+            onProgress(Math.round(progress));
+          }
+        },
+        (error) => {
+          console.error(`Firebase Storage upload error for ${fileToUpload.name}:`, error);
+          reject(error);
+        },
+        async () => {
+          console.log(`Firebase Storage upload complete for ${fileToUpload.name}`);
+          try {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log(`Download URL obtained: ${downloadUrl}`);
+            resolve(downloadUrl);
+          } catch (error) {
+            console.error("Error getting download URL:", error);
+            reject(error);
+          }
+        }
+      );
+    });
+  } catch (error) {
+    console.error("Critical failure during Firebase Storage upload initialization:", error);
+    throw error;
+  }
 }
 
 export async function uploadToFirebaseStorage(
   file: File,
   onProgress?: (progress: number) => void
 ): Promise<string> {
-  const isTooLargeForServer = file.size > 28 * 1024 * 1024; // 28MB threshold to avoid Cloud Run's 32MB payload limit
-
-  if (isTooLargeForServer) {
-    console.log(`File is too large for server upload (${(file.size / 1024 / 1024).toFixed(1)}MB). Directly uploading to Firebase Storage...`);
-    return uploadDirectToFirebaseStorage(file, onProgress);
-  }
-
-  // Try uploading to our local container upload endpoint first (highly reliable, instant, works offline/local)
-  try {
-    // PRE-COMPRESS/OPTIMIZE IMAGES FIRST for ultra high speed and maximum compatibility
-    let fileToUpload = file;
-    if (file.type.startsWith("image/") && file.type !== "image/gif") {
-      try {
-        fileToUpload = await compressAndOptimizeImage(file);
-      } catch (e) {
-        console.warn("Client side compression failed, using original file", e);
-      }
-    }
-
-    const localUrl = await new Promise<string>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      const formData = new FormData();
-      formData.append("file", fileToUpload);
-
-      xhr.open("POST", "/api/upload", true);
-
-      if (onProgress && xhr.upload) {
-        xhr.upload.addEventListener("progress", (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = (event.loaded / event.total) * 100;
-            onProgress(Math.round(percentComplete));
-          }
-        });
-      }
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            if (response.success && response.url) {
-              resolve(response.url);
-            } else {
-              reject(new Error(response.error || "Failed to parse upload response."));
-            }
-          } catch (err) {
-            reject(new Error("Failed to parse server response as JSON."));
-          }
-        } else {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            reject(new Error(response.error || `Upload failed with status code ${xhr.status}`));
-          } catch {
-            reject(new Error(`Upload failed with status code ${xhr.status}`));
-          }
-        }
-      };
-
-      xhr.onerror = () => {
-        reject(new Error("Network error occurred during file upload."));
-      };
-
-      xhr.send(formData);
-    });
-    return localUrl;
-  } catch (err) {
-    console.warn("Local container upload failed, falling back to Firebase Storage:", err);
-    return uploadDirectToFirebaseStorage(file, onProgress);
-  }
+  console.log(`uploadToFirebaseStorage (forced direct): ${file.name}, type: ${file.type}, size: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+  return uploadDirectToFirebaseStorage(file, onProgress);
 }
