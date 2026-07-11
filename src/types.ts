@@ -81,4 +81,5 @@ export interface StudioContent {
     backgroundUrl?: string;
   };
   reviews?: ClientReview[];
+  philosophy_catalog?: string[];
 }

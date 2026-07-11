@@ -19,9 +19,8 @@ import {
   Image as ImageIcon
 } from "lucide-react";
 import { StudioContent } from "../types";
-import { db, storage, uploadToFirebaseStorage } from "../lib/firebase";
-import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
-import { ref } from "firebase/storage";
+import { uploadToFirebaseStorage } from "../lib/firebase";
+import { getLocalPhilosophyCatalog, saveLocalPhilosophyCatalog } from "../lib/storage";
 
 // Modular Sections
 import { DetailsSection } from "./admin/DetailsSection";
@@ -61,7 +60,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     console.log("AdminPanel: activeTab changed to", activeTab);
   }, [activeTab]);
 
-  const [philosophyCatalog, setPhilosophyCatalog] = useState<string[]>([]);
+  const [philosophyCatalog, setPhilosophyCatalog] = useState<string[]>(() => {
+    return currentContent.philosophy_catalog || [];
+  });
   const [catalogUploads, setCatalogUploads] = useState<
     { id: string; name: string; progress: number; status: "uploading" | "success" | "error"; url?: string; error?: string }[]
   >([]);
@@ -69,21 +70,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   useEffect(() => {
     const fetchCatalog = async () => {
+      if (content.philosophy_catalog && content.philosophy_catalog.length > 0) {
+        setPhilosophyCatalog(content.philosophy_catalog);
+        return;
+      }
       setLoadingCatalog(true);
       try {
-        const docRef = doc(db, "settings", "philosophy_catalog");
-        const snap = await getDoc(docRef);
-        if (snap.exists() && snap.data().philosophy_catalog) {
-          setPhilosophyCatalog(snap.data().philosophy_catalog);
+        const localCatalog = await getLocalPhilosophyCatalog();
+        if (localCatalog && localCatalog.length > 0) {
+          setPhilosophyCatalog(localCatalog);
+          setContent((prev) => ({ ...prev, philosophy_catalog: localCatalog }));
         }
       } catch (err) {
-        console.error("Failed to load philosophy catalog from Firestore:", err);
+        console.error("Failed to load philosophy catalog:", err);
       } finally {
         setLoadingCatalog(false);
       }
     };
     fetchCatalog();
-  }, []);
+  }, [content.philosophy_catalog]);
 
   const handleCatalogFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -115,15 +120,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           );
         });
 
-        // Push resulting URL into 'philosophy_catalog' Firestore array
-        const docRef = doc(db, "settings", "philosophy_catalog");
-        await setDoc(
-          docRef,
-          {
-            philosophy_catalog: arrayUnion(downloadUrl),
-          },
-          { merge: true }
-        );
+        // Update list in local component state
+        setPhilosophyCatalog((prev) => {
+          const updated = prev.includes(downloadUrl) ? prev : [...prev, downloadUrl];
+          
+          // Save directly to backend content payload
+          const updatedContent = {
+            ...content,
+            philosophy_catalog: updated,
+          };
+          setContent(updatedContent);
+          onSaveContent(updatedContent).catch((err) =>
+            console.error("Failed to sync catalog upload with backend:", err)
+          );
+
+          // Save local IndexedDB backup
+          saveLocalPhilosophyCatalog(updated).catch((err) =>
+            console.error("Failed to save local catalog backup:", err)
+          );
+          return updated;
+        });
 
         // Update local task state as success
         setCatalogUploads((prev) =>
@@ -134,19 +150,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           )
         );
 
-        // Also update the local list of philosophy catalog URLs so the user sees it immediately!
-        setPhilosophyCatalog((prev) => {
-          if (prev.includes(downloadUrl)) return prev;
-          return [...prev, downloadUrl];
-        });
-
-        console.log(`Successfully uploaded ${file.name} and pushed to Firestore 'philosophy_catalog' array.`);
+        console.log(`Successfully processed ${file.name} to Base64.`);
       } catch (err: any) {
         console.error(`Upload/save failed for ${file.name}:`, err);
         setCatalogUploads((prev) =>
           prev.map((t) =>
             t.id === trackingTask.id
-              ? { ...t, status: "error" as const, error: err.message || "Upload or save failed" }
+              ? { ...t, status: "error" as const, error: err.message || "Failed to process" }
               : t
           )
         );
@@ -156,15 +166,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleRemoveCatalogItem = async (url: string) => {
     try {
-      const docRef = doc(db, "settings", "philosophy_catalog");
-      await setDoc(
-        docRef,
-        {
-          philosophy_catalog: arrayRemove(url),
-        },
-        { merge: true }
-      );
-      setPhilosophyCatalog((prev) => prev.filter((item) => item !== url));
+      const updatedCatalog = philosophyCatalog.filter((item) => item !== url);
+      
+      // Update in backend content payload
+      const updatedContent = {
+        ...content,
+        philosophy_catalog: updatedCatalog,
+      };
+      setContent(updatedContent);
+      await onSaveContent(updatedContent);
+
+      // Clean from local backup and state
+      await saveLocalPhilosophyCatalog(updatedCatalog);
+      setPhilosophyCatalog(updatedCatalog);
       showNotification("success", "Item removed from Philosophy Catalog successfully.");
     } catch (err: any) {
       console.error("Failed to remove item:", err);

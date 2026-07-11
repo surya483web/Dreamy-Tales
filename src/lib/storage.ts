@@ -111,3 +111,50 @@ export async function saveLocalInquiries(inquiries: any[]): Promise<void> {
     console.warn("localStorage inquiries backup failed:", storageErr);
   }
 }
+
+// Helpers for Philosophy Catalog
+export async function getLocalPhilosophyCatalog(): Promise<string[]> {
+  try {
+    const db = await initStorageDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(CONTENT_STORE, "readonly");
+      const store = transaction.objectStore(CONTENT_STORE);
+      const request = store.get("philosophy_catalog");
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error("IndexedDB getLocalPhilosophyCatalog failed, falling back to localStorage:", err);
+    try {
+      const saved = localStorage.getItem("philosophy_catalog");
+      return saved ? JSON.parse(saved) : [];
+    } catch (localErr) {
+      return [];
+    }
+  }
+}
+
+export async function saveLocalPhilosophyCatalog(catalog: string[]): Promise<void> {
+  try {
+    const db = await initStorageDb();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(CONTENT_STORE, "readwrite");
+      const store = transaction.objectStore(CONTENT_STORE);
+      const request = store.put(catalog, "philosophy_catalog");
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error("IndexedDB saveLocalPhilosophyCatalog failed:", err);
+  }
+
+  try {
+    const jsonStr = JSON.stringify(catalog);
+    if (jsonStr.length < 4 * 1024 * 1024) {
+      localStorage.setItem("philosophy_catalog", jsonStr);
+    }
+  } catch (storageErr) {
+    console.warn("localStorage philosophy catalog backup failed:", storageErr);
+  }
+}
+
