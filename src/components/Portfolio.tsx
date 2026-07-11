@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { PortfolioItem } from "../types";
 import { Play, X, Volume2, VolumeX, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { fetchSamaroGalleryClient } from "../lib/samaro";
 
 interface PortfolioProps {
   items?: PortfolioItem[];
@@ -42,20 +43,15 @@ export default function Portfolio({ items = [], onViewMore }: PortfolioProps) {
     setIsLoadingMore(true);
     setErrorMessage("");
     try {
-      const response = await fetch("/api/samaro-gallery");
-      const data = await response.json();
-      if (data.success && data.items) {
-        // Prevent duplication of URLs
-        const existingUrls = new Set(allPortfolioItems.map(item => item.mediaUrl));
-        const uniqueNewItems = data.items.filter((item: PortfolioItem) => !existingUrls.has(item.mediaUrl));
-        
-        setAllPortfolioItems(prev => [...prev, ...uniqueNewItems]);
-        setHasLoadedExternal(true);
-      } else {
-        setErrorMessage(data.error || "Failed to load external gallery.");
-      }
+      const itemsList = await fetchSamaroGalleryClient();
+      // Prevent duplication of URLs
+      const existingUrls = new Set(allPortfolioItems.map(item => item.mediaUrl));
+      const uniqueNewItems = itemsList.filter((item: PortfolioItem) => !existingUrls.has(item.mediaUrl));
+      
+      setAllPortfolioItems(prev => [...prev, ...uniqueNewItems]);
+      setHasLoadedExternal(true);
     } catch (err: any) {
-      setErrorMessage("Could not connect to service. Please try again.");
+      setErrorMessage("Could not load external gallery. Please check your internet connection.");
       console.error(err);
     } finally {
       setIsLoadingMore(false);

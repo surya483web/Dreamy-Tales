@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FolderHeart,
   Info,
@@ -11,9 +11,17 @@ import {
   Save,
   AlertCircle,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Trash2,
+  ExternalLink,
+  FileText,
+  Image as ImageIcon
 } from "lucide-react";
 import { StudioContent } from "../types";
+import { db, storage, uploadToFirebaseStorage } from "../lib/firebase";
+import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { ref } from "firebase/storage";
 
 // Modular Sections
 import { DetailsSection } from "./admin/DetailsSection";
@@ -37,7 +45,8 @@ type TabType =
   | "story"
   | "stats"
   | "portfolio"
-  | "reviews";
+  | "reviews"
+  | "philosophy_catalog";
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   currentContent,
@@ -51,6 +60,118 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   React.useEffect(() => {
     console.log("AdminPanel: activeTab changed to", activeTab);
   }, [activeTab]);
+
+  const [philosophyCatalog, setPhilosophyCatalog] = useState<string[]>([]);
+  const [catalogUploads, setCatalogUploads] = useState<
+    { id: string; name: string; progress: number; status: "uploading" | "success" | "error"; url?: string; error?: string }[]
+  >([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      setLoadingCatalog(true);
+      try {
+        const docRef = doc(db, "settings", "philosophy_catalog");
+        const snap = await getDoc(docRef);
+        if (snap.exists() && snap.data().philosophy_catalog) {
+          setPhilosophyCatalog(snap.data().philosophy_catalog);
+        }
+      } catch (err) {
+        console.error("Failed to load philosophy catalog from Firestore:", err);
+      } finally {
+        setLoadingCatalog(false);
+      }
+    };
+    fetchCatalog();
+  }, []);
+
+  const handleCatalogFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files) as File[];
+    if (files.length === 0) return;
+
+    // Create tracking objects for each file
+    const newUploadTasks = files.map((file, idx) => ({
+      id: `${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 9)}`,
+      name: file.name,
+      progress: 0,
+      status: "uploading" as const,
+    }));
+
+    // Update the state so the UI lists all tasks immediately
+    setCatalogUploads((prev) => [...newUploadTasks, ...prev]);
+
+    // Start parallel uploads
+    files.forEach(async (file, idx) => {
+      const trackingTask = newUploadTasks[idx];
+      try {
+        const downloadUrl = await uploadToFirebaseStorage(file, (progress) => {
+          setCatalogUploads((prev) =>
+            prev.map((t) =>
+              t.id === trackingTask.id
+                ? { ...t, progress }
+                : t
+            )
+          );
+        });
+
+        // Push resulting URL into 'philosophy_catalog' Firestore array
+        const docRef = doc(db, "settings", "philosophy_catalog");
+        await setDoc(
+          docRef,
+          {
+            philosophy_catalog: arrayUnion(downloadUrl),
+          },
+          { merge: true }
+        );
+
+        // Update local task state as success
+        setCatalogUploads((prev) =>
+          prev.map((t) =>
+            t.id === trackingTask.id
+              ? { ...t, status: "success" as const, progress: 100, url: downloadUrl }
+              : t
+          )
+        );
+
+        // Also update the local list of philosophy catalog URLs so the user sees it immediately!
+        setPhilosophyCatalog((prev) => {
+          if (prev.includes(downloadUrl)) return prev;
+          return [...prev, downloadUrl];
+        });
+
+        console.log(`Successfully uploaded ${file.name} and pushed to Firestore 'philosophy_catalog' array.`);
+      } catch (err: any) {
+        console.error(`Upload/save failed for ${file.name}:`, err);
+        setCatalogUploads((prev) =>
+          prev.map((t) =>
+            t.id === trackingTask.id
+              ? { ...t, status: "error" as const, error: err.message || "Upload or save failed" }
+              : t
+          )
+        );
+      }
+    });
+  };
+
+  const handleRemoveCatalogItem = async (url: string) => {
+    try {
+      const docRef = doc(db, "settings", "philosophy_catalog");
+      await setDoc(
+        docRef,
+        {
+          philosophy_catalog: arrayRemove(url),
+        },
+        { merge: true }
+      );
+      setPhilosophyCatalog((prev) => prev.filter((item) => item !== url));
+      showNotification("success", "Item removed from Philosophy Catalog successfully.");
+    } catch (err: any) {
+      console.error("Failed to remove item:", err);
+      showNotification("error", "Failed to remove item: " + err.message);
+    }
+  };
+
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [notification, setNotification] = useState<{
@@ -154,6 +275,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       label: "Client Praise",
       icon: Heart,
       description: "Manage couple testimonials and portraits.",
+    },
+    {
+      id: "philosophy_catalog" as TabType,
+      label: "Philosophy Catalog",
+      icon: BookOpen,
+      description: "Parallel file uploader to Firestore philosophy_catalog.",
     },
   ];
 
@@ -334,6 +461,184 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 initialReviews={content.reviews}
                 onSave={(data) => handleSectionSave("reviews", data)}
               />
+            )}
+
+            {activeTab === "philosophy_catalog" && (
+              <div id="philosophy-catalog-tab" className="space-y-6">
+                <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                  <div>
+                    <h3 className="text-lg font-serif text-gold font-semibold">Philosophy Catalog</h3>
+                    <p className="text-xs text-zinc-400">
+                      Upload luxury wedding photos to your cloud-stored philosophy catalog. Images are processed and uploaded in parallel.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Upload Zone */}
+                <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-6 space-y-4">
+                  <h4 className="text-[11px] uppercase tracking-wider text-gold font-bold">Parallel File Uploader</h4>
+                  <p className="text-xs text-zinc-400">
+                    Select one or more images from your local device. Each file will initiate an independent, parallel Firebase Storage upload task. Once complete, its URL will be appended to the <span className="font-mono text-gold bg-zinc-950 px-1 py-0.5 rounded">philosophy_catalog</span> array.
+                  </p>
+
+                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-lg p-8 bg-black/40 hover:border-gold/30 hover:bg-gold/[0.02] transition-all duration-300">
+                    <Upload className="w-8 h-8 text-gold mb-3" />
+                    <label
+                      htmlFor="philosophy-catalog-bulk-upload"
+                      className="px-5 py-2 bg-gradient-to-r from-gold to-yellow-600 text-zinc-950 rounded text-xs font-bold uppercase tracking-wider cursor-pointer hover:brightness-110 shadow-lg shadow-gold/10 transition-all"
+                    >
+                      Choose Images
+                    </label>
+                    <input
+                      id="philosophy-catalog-bulk-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleCatalogFilesChange}
+                      className="hidden"
+                    />
+                    <p className="text-[10px] text-zinc-500 mt-2 font-mono">Supports multiple JPG, PNG, WebP files</p>
+                  </div>
+                </div>
+
+                {/* Upload Task Pipeline */}
+                {catalogUploads.length > 0 && (
+                  <div className="bg-zinc-900/30 border border-white/5 rounded-xl p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Active Upload Queue</h4>
+                      <button
+                        type="button"
+                        onClick={() => setCatalogUploads([])}
+                        className="text-[9px] uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
+                      >
+                        Clear Queue History
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1 no-scrollbar col-span-1">
+                      {catalogUploads.map((task) => (
+                        <div
+                          key={task.id}
+                          className="bg-black/40 border border-white/5 rounded-lg p-3 flex items-center gap-3 transition-colors hover:bg-zinc-900/40"
+                        >
+                          <div className="w-10 h-10 rounded bg-zinc-950 border border-white/5 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            {task.status === "success" && task.url ? (
+                              <img
+                                src={task.url}
+                                alt="Uploaded"
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <ImageIcon className="w-4 h-4 text-zinc-600" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <p className="text-xs text-zinc-300 font-medium truncate" title={task.name}>
+                              {task.name}
+                            </p>
+                            <div className="flex items-center justify-between text-[10px] font-mono">
+                              {task.status === "uploading" && (
+                                <span className="text-gold animate-pulse">Uploading {task.progress}%</span>
+                              )}
+                              {task.status === "success" && (
+                                <span className="text-green-400 flex items-center gap-1 font-semibold">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Complete
+                                </span>
+                              )}
+                              {task.status === "error" && (
+                                <span className="text-red-400 font-semibold" title={task.error}>
+                                  Upload Failed
+                                </span>
+                              )}
+                            </div>
+                            
+                            {task.status === "uploading" && (
+                              <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-gold to-yellow-500 h-full transition-all duration-300"
+                                  style={{ width: `${task.progress}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Current Catalog Display */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                    <h4 className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                      Stored Philosophy Images ({philosophyCatalog.length})
+                    </h4>
+                    {loadingCatalog && (
+                      <span className="text-[10px] text-gold flex items-center gap-1.5 font-mono">
+                        <RefreshCw className="w-3 h-3 animate-spin" /> Synchronizing...
+                      </span>
+                    )}
+                  </div>
+
+                  {philosophyCatalog.length === 0 ? (
+                    <div className="text-center py-12 bg-black/20 border border-white/5 rounded-xl">
+                      <ImageIcon className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+                      <p className="text-sm text-zinc-500 italic">The philosophy catalog is currently empty.</p>
+                      <p className="text-xs text-zinc-600 mt-1">Upload files above to start populating your catalog.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {philosophyCatalog.map((url, idx) => (
+                        <div
+                          key={`${idx}-${url}`}
+                          className="group relative border border-white/10 rounded-lg overflow-hidden bg-zinc-950 flex flex-col"
+                        >
+                          <div className="aspect-video w-full bg-zinc-900 relative overflow-hidden">
+                            <img
+                              src={url}
+                              alt="Catalog Item"
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute top-2 right-2 flex gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(url);
+                                  showNotification("success", "Link copied to clipboard!");
+                                }}
+                                className="p-1.5 bg-black/70 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                title="Copy Public URL"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to delete this image from your philosophy catalog?")) {
+                                    handleRemoveCatalogItem(url);
+                                  }
+                                }}
+                                className="p-1.5 bg-black/70 hover:bg-red-600 rounded text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                title="Delete from Catalog"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="p-2 flex-1 flex flex-col justify-between bg-black/40">
+                            <div className="text-[9px] text-zinc-500 font-mono truncate select-all" title={url}>
+                              {url}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </main>
         </div>

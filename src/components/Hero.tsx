@@ -111,7 +111,7 @@ export default function Hero({ data, onReserveClick, isAdminMode }: HeroProps) {
 
   const handleVideoError = () => {
     // If custom video fails to load (e.g. server 404), fallback to a premium online wedding cinematic background video
-    const defaultFallback = "https://cdn.coverr.co/videos/coverr-wedding-ceremony-under-a-canopy-4767/1080p.mp4";
+    const defaultFallback = "https://assets.mixkit.co/videos/preview/mixkit-wedding-rings-and-flowers-40011-large.mp4";
     if (currentVideoUrl && currentVideoUrl !== defaultFallback) {
       console.log(`Background video ${currentVideoUrl} failed to load. Falling back to default: ${defaultFallback}`);
       setCurrentVideoUrl(defaultFallback);

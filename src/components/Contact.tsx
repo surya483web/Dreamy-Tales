@@ -18,9 +18,10 @@ import {
   Globe,
   MessageCircle
 } from "lucide-react";
-import { StudioDetails } from "../types";
+import { StudioDetails, Inquiry } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { getLocalInquiries, saveLocalInquiries } from "../lib/storage";
+import { submitInquiryToFirebase } from "../lib/firebase";
 
 interface ContactProps {
   details?: StudioDetails;
@@ -110,20 +111,26 @@ export default function Contact({ details, isModalOpen: controlledModalOpen, set
       }
 
       if (!submissionSuccess) {
-        // Fallback to storing inquiry locally in IndexedDB so that it is visible in the Admin Panel
-        const inquiries = (await getLocalInquiries()) || [];
-        
-        const newInquiry = {
+        const newInquiry: Inquiry = {
           id: `inq-${Date.now()}`,
           ...formData,
           status: "new",
           createdAt: new Date().toISOString(),
         };
-        
-        inquiries.unshift(newInquiry);
-        await saveLocalInquiries(inquiries);
-        msg = "Reservation request saved successfully to your browser storage!";
-        submissionSuccess = true;
+
+        try {
+          await submitInquiryToFirebase(newInquiry);
+          submissionSuccess = true;
+          msg = "Reservation request submitted successfully to the cloud database!";
+        } catch (fbErr) {
+          console.warn("Direct-to-Firebase inquiry submission failed, trying local IndexedDB storage:", fbErr);
+          // Fallback to storing inquiry locally in IndexedDB so that it is visible in the Admin Panel
+          const inquiries = (await getLocalInquiries()) || [];
+          inquiries.unshift(newInquiry);
+          await saveLocalInquiries(inquiries);
+          msg = "Reservation request saved successfully to your browser storage!";
+          submissionSuccess = true;
+        }
       }
 
       setSuccessMsg(msg || "Reservation request transmitted! Our lead producer will review and contact you shortly.");

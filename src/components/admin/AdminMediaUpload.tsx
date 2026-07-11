@@ -60,24 +60,23 @@ export const AdminMediaUpload: React.FC<AdminMediaUploadProps> = ({
       }
     }
 
-    const MAX_SIZE = 50 * 1024 * 1024; // 50MB limit
+    const isVideoFile = file.type.startsWith("video/");
+    const MAX_SIZE = isVideoFile ? 1000 * 1024 * 1024 : 100 * 1024 * 1024; // 1GB for video, 100MB for images
     if (file.size > MAX_SIZE) {
-      setError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Limit is 50MB.`);
+      const displayLimit = isVideoFile ? "1000MB" : "100MB";
+      setError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Limit is ${displayLimit}.`);
       setUploading(false);
       return;
     }
 
     try {
-      const base64String = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.readAsDataURL(file);
+      const downloadUrl = await uploadToFirebaseStorage(file, (pct) => {
+        setProgress(pct);
       });
-      onChange(base64String);
+      onChange(downloadUrl);
     } catch (err: any) {
-      console.error("Base64 Conversion Error:", err);
-      setError(err.message || "Failed to process file.");
+      console.error("Upload Error:", err);
+      setError(err.message || "Failed to upload file.");
     } finally {
       setUploading(false);
     }

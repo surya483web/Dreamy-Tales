@@ -8,9 +8,6 @@ import multer from "multer";
 import convert from "heic-convert";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { getApps as getAdminApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import { getStorage as getAdminStorage, getDownloadURL as getAdminDownloadURL } from "firebase-admin/storage";
 
 const execPromise = promisify(exec);
 
@@ -62,6 +59,48 @@ const defaultContent: StudioContent = {
       "Our Promise: To treat every frame as an archival piece of art. Handcrafted album layouts, meticulously color-graded cinematic films, and memories that retain their warmth for generations.",
     ],
     photoUrl: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=1200",
+    philosophySlides: [
+      {
+        "id": "p-slide-1",
+        "imageUrl": "/uploads/T_S_Wed_1.jpg",
+        "title": "THE REGAL UNION"
+      },
+      {
+        "id": "p-slide-2",
+        "imageUrl": "/uploads/T_S_Wed_2.jpg",
+        "title": "GOLDEN HOUR LOVE"
+      },
+      {
+        "id": "p-slide-3",
+        "imageUrl": "/uploads/T_S_Wed_3.jpg",
+        "title": "CANDID WHISPERS"
+      },
+      {
+        "id": "p-slide-4",
+        "imageUrl": "/uploads/T_S_Wed_4.jpg",
+        "title": "THE ROYAL EMBRACE"
+      },
+      {
+        "id": "p-slide-5",
+        "imageUrl": "/uploads/T_S_Wed_5.jpg",
+        "title": "ARCHITECTURAL GLANCE"
+      },
+      {
+        "id": "p-slide-6",
+        "imageUrl": "/uploads/T_S_Wed_6.jpg",
+        "title": "ETERNAL CHEMISTRY"
+      },
+      {
+        "id": "p-slide-7",
+        "imageUrl": "/uploads/T_S_Wed_7.jpg",
+        "title": "SILENT CHEMISTRY"
+      },
+      {
+        "id": "p-slide-8",
+        "imageUrl": "/uploads/T_S_Wed_8.jpg",
+        "title": "NUPTIAL HAPPINESS"
+      }
+    ]
   },
   stats: {
     weddings: 100,
@@ -166,72 +205,15 @@ const defaultContent: StudioContent = {
   ],
 };
 
-// Initialize Firebase
-const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+// Initialize Local Database Files (No Firebase)
 let firestoreDb: any = null;
 let firestoreStorage: any = null;
 
-if (fs.existsSync(firebaseConfigPath)) {
-  try {
-    const config = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
-    
-    // Initialize Admin SDK for Firestore and Storage to bypass rules on the server
-    if (!getAdminApps().length) {
-      initializeAdminApp({
-        projectId: config.projectId,
-        storageBucket: config.storageBucket,
-      });
-    }
-    const dbId = config.firestoreDatabaseId;
-    firestoreDb = dbId && dbId !== "(default)" ? getFirestore(getAdminApps()[0], dbId) : getFirestore();
-    firestoreStorage = getAdminStorage().bucket(config.storageBucket);
-    
-    console.log("Firebase Admin SDK Firestore and Storage initialized on backend successfully with databaseId:", dbId || "(default)");
-  } catch (err) {
-    console.error("Failed to initialize Firebase on backend server:", err);
-  }
-}
-
-// Helper to upload a local file to Firebase Storage and return its public URL
+// Helper to get local public URL for local uploads
 async function uploadLocalFileToFirebase(localFilePath: string, originalName: string, mimeType: string): Promise<string> {
-  if (!firestoreStorage) {
-    throw new Error("Firebase Storage is not initialized on the server.");
-  }
-  try {
-    const fileBuffer = fs.readFileSync(localFilePath);
-    const fileExt = path.extname(originalName).replace(".", "") || "bin";
-    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-    const folder = mimeType.startsWith("video/") ? "videos" : "photos";
-    const fileDestination = `${folder}/${uniqueFileName}`;
-    
-    console.log(`Uploading ${originalName} to Firebase Storage as ${fileDestination} using Admin SDK...`);
-    
-    const fileRef = firestoreStorage.file(fileDestination);
-    const downloadToken = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-    
-    await fileRef.save(fileBuffer, {
-      metadata: {
-        contentType: mimeType,
-        metadata: {
-          firebaseStorageDownloadTokens: downloadToken,
-        },
-      },
-    });
-    
-    let downloadUrl = "";
-    try {
-      downloadUrl = await getAdminDownloadURL(fileRef);
-    } catch (adminUrlErr) {
-      console.warn(`getAdminDownloadURL failed for ${originalName}, falling back to manual URL formatting:`, adminUrlErr);
-      downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${firestoreStorage.name}/o/${encodeURIComponent(fileDestination)}?alt=media&token=${downloadToken}`;
-    }
-    
-    console.log(`Successfully uploaded ${originalName} to Firebase Storage! URL: ${downloadUrl}`);
-    return downloadUrl;
-  } catch (err) {
-    console.error(`Failed to upload ${originalName} to Firebase Storage:`, err);
-    throw err;
-  }
+  const filename = path.basename(localFilePath);
+  console.log(`Successfully mapped local file ${originalName} to local serving path /uploads/${filename}`);
+  return `/uploads/${filename}`;
 }
 
 // Initialize content.json
@@ -413,6 +395,9 @@ app.post("/api/upload", (req, res, next) => {
           let useLocalFallback = false;
           try {
             firebaseURL = await uploadLocalFileToFirebase(newPath, newFilename, "image/jpeg");
+            if (firebaseURL.startsWith("/uploads/")) {
+              useLocalFallback = true;
+            }
           } catch (uploadErr) {
             console.warn("Firebase Storage upload failed for HEIC, falling back to local static serving:", uploadErr);
             useLocalFallback = true;
@@ -473,6 +458,9 @@ app.post("/api/upload", (req, res, next) => {
           let useLocalFallback = false;
           try {
             firebaseURL = await uploadLocalFileToFirebase(newPath, newFilename, "video/mp4");
+            if (firebaseURL.startsWith("/uploads/")) {
+              useLocalFallback = true;
+            }
           } catch (uploadErr) {
             console.warn("Firebase Storage upload failed for video, falling back to local static serving:", uploadErr);
             useLocalFallback = true;
@@ -503,6 +491,9 @@ app.post("/api/upload", (req, res, next) => {
       let useLocalFallback = false;
       try {
         firebaseURL = await uploadLocalFileToFirebase(req.file.path, req.file.originalname, req.file.mimetype);
+        if (firebaseURL.startsWith("/uploads/")) {
+          useLocalFallback = true;
+        }
       } catch (uploadErr) {
         console.warn("Firebase Storage upload failed for file, falling back to local static serving:", uploadErr);
         useLocalFallback = true;
@@ -580,6 +571,9 @@ app.post("/api/upload", (req, res, next) => {
           let useLocalFallback = false;
           try {
             firebaseURL = await uploadLocalFileToFirebase(transPath, transFilename, "video/mp4");
+            if (firebaseURL.startsWith("/uploads/")) {
+              useLocalFallback = true;
+            }
           } catch (uploadErr) {
             console.warn("Firebase Storage upload failed for base64 video, falling back to local static serving:", uploadErr);
             useLocalFallback = true;
@@ -609,6 +603,9 @@ app.post("/api/upload", (req, res, next) => {
       let useLocalFallback = false;
       try {
         firebaseURL = await uploadLocalFileToFirebase(filePath, fileName, fileType || "application/octet-stream");
+        if (firebaseURL.startsWith("/uploads/")) {
+          useLocalFallback = true;
+        }
       } catch (uploadErr) {
         console.warn("Firebase Storage upload failed for base64 file, falling back to local static serving:", uploadErr);
         useLocalFallback = true;

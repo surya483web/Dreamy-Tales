@@ -14,6 +14,7 @@ import GalleryPage from "./components/GalleryPage";
 import { Loader2 } from "lucide-react";
 import { defaultContent } from "./defaultContent";
 import { getLocalContent, saveLocalContent } from "./lib/storage";
+import { getSettingsFromFirebase, saveSettingsToFirebase } from "./lib/firebase";
 import { motion, AnimatePresence } from "motion/react";
 import CardStackSection from "./components/CardStackSection";
 import TermsModal from "./components/TermsModal";
@@ -40,11 +41,31 @@ export default function App() {
         await saveLocalContent(data);
         setContent(data);
       } else {
-        // Fallback to client local storage or default configuration
+        // Fallback to direct client-side Firebase
+        try {
+          const fbData = await getSettingsFromFirebase();
+          if (fbData) {
+            await saveLocalContent(fbData);
+            setContent(fbData);
+            return;
+          }
+        } catch (fbErr) {
+          console.warn("Client-side Firebase load failed, falling back to local storage:", fbErr);
+        }
         await loadLocalFallback();
       }
     } catch (err: any) {
-      console.warn("Unable to load config from server. Falling back to local storage (ideal for static hosts like Netlify):", err);
+      console.warn("Unable to load config from server. Trying direct client-side Firebase...", err);
+      try {
+        const fbData = await getSettingsFromFirebase();
+        if (fbData) {
+          await saveLocalContent(fbData);
+          setContent(fbData);
+          return;
+        }
+      } catch (fbErr) {
+        console.warn("Client-side Firebase load failed as well, falling back to local storage:", fbErr);
+      }
       await loadLocalFallback();
     } finally {
       setLoading(false);
@@ -185,27 +206,37 @@ export default function App() {
       setContent({ ...newContent });
       await saveLocalContent(newContent);
 
-      const response = await fetch("/api/content", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newContent),
-      });
+      let savedOnServer = false;
+      try {
+        const response = await fetch("/api/content", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newContent),
+        });
 
-      if (!response.ok) {
-        const errorJson = await response.json().catch(() => ({}));
-        throw new Error(errorJson.error || `Server responded with status ${response.status}`);
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.content) {
+            setContent({ ...resData.content });
+            await saveLocalContent(resData.content);
+            savedOnServer = true;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Failed to save to Express backend, trying client-side Firebase...", apiErr);
       }
 
-      const resData = await response.json();
-      if (resData.success && resData.content) {
-        setContent({ ...resData.content });
-        await saveLocalContent(resData.content);
+      if (!savedOnServer) {
+        // Save to Firebase directly (ideal for Netlify!)
+        await saveSettingsToFirebase(newContent);
+        console.log("Saved content directly to client-side Firebase Firestore.");
       }
+
       return true;
     } catch (err: any) {
-      console.error("Server-side persist failed:", err);
+      console.error("Failed to save content completely:", err);
       // Re-throw so AdminPanel displays the precise error message
       throw err;
     }

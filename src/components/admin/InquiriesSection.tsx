@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Mail, Phone, Calendar, User, MessageSquare, AlertCircle, RefreshCw, Check, Clock, Search } from "lucide-react";
 import { Inquiry } from "../../types";
+import { getInquiriesFromFirebase, updateInquiryStatusInFirebase } from "../../lib/firebase";
 
 export const InquiriesSection: React.FC = () => {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
@@ -13,9 +14,19 @@ export const InquiriesSection: React.FC = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/inquiries");
-      if (!res.ok) throw new Error("Failed to load inquiries");
-      const data = await res.json();
+      let data: Inquiry[] | null = null;
+      try {
+        const res = await fetch("/api/inquiries");
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (e) {
+        console.warn("Express server inquiries endpoint failed, trying client-side Firebase...", e);
+      }
+
+      if (!data) {
+        data = await getInquiriesFromFirebase();
+      }
       setInquiries(data);
     } catch (err: any) {
       console.error(err);
@@ -37,13 +48,25 @@ export const InquiriesSection: React.FC = () => {
         prev.map((inq) => (inq.id === id ? { ...inq, status: nextStatus } : inq))
       );
 
-      const res = await fetch(`/api/inquiries/${id}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
+      let savedOnServer = false;
+      try {
+        const res = await fetch(`/api/inquiries/${id}/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: nextStatus }),
+        });
 
-      if (!res.ok) throw new Error("Failed to update status on server");
+        if (res.ok) {
+          savedOnServer = true;
+        }
+      } catch (err) {
+        console.warn("Failed to update inquiry status on server, trying direct Firebase:", err);
+      }
+
+      if (!savedOnServer) {
+        await updateInquiryStatusInFirebase(id, nextStatus);
+        console.log(`Successfully updated inquiry ${id} status to ${nextStatus} in direct Firebase.`);
+      }
     } catch (err: any) {
       console.error(err);
       // Revert optimistic update

@@ -28,24 +28,44 @@ export const defaultContent: StudioContent = {
     philosophyBgUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1600",
     philosophySlides: [
       {
-        id: "p-slide-1",
-        imageUrl: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=1200",
-        title: "SIGNATURE WORK"
+        "id": "p-slide-1",
+        "imageUrl": "/uploads/T_S_Wed_1.jpg",
+        "title": "THE REGAL UNION"
       },
       {
-        id: "p-slide-2",
-        imageUrl: "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=1200",
-        title: "THE RAJPUTANA GLORY"
+        "id": "p-slide-2",
+        "imageUrl": "/uploads/T_S_Wed_2.jpg",
+        "title": "GOLDEN HOUR LOVE"
       },
       {
-        id: "p-slide-3",
-        imageUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200",
-        title: "GOLDEN HOUR WHISPERS"
+        "id": "p-slide-3",
+        "imageUrl": "/uploads/T_S_Wed_3.jpg",
+        "title": "CANDID WHISPERS"
       },
       {
-        id: "p-slide-4",
-        imageUrl: "https://images.unsplash.com/photo-1519225495810-7512c696505a?auto=format&fit=crop&q=80&w=1200",
-        title: "CANDID MOMENTS"
+        "id": "p-slide-4",
+        "imageUrl": "/uploads/T_S_Wed_4.jpg",
+        "title": "THE ROYAL EMBRACE"
+      },
+      {
+        "id": "p-slide-5",
+        "imageUrl": "/uploads/T_S_Wed_5.jpg",
+        "title": "ARCHITECTURAL GLANCE"
+      },
+      {
+        "id": "p-slide-6",
+        "imageUrl": "/uploads/T_S_Wed_6.jpg",
+        "title": "ETERNAL CHEMISTRY"
+      },
+      {
+        "id": "p-slide-7",
+        "imageUrl": "/uploads/T_S_Wed_7.jpg",
+        "title": "SILENT CHEMISTRY"
+      },
+      {
+        "id": "p-slide-8",
+        "imageUrl": "/uploads/T_S_Wed_8.jpg",
+        "title": "NUPTIAL HAPPINESS"
       }
     ]
   },

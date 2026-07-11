@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { PortfolioItem } from "../types";
+import { fetchSamaroGalleryClient } from "../lib/samaro";
 import { 
   ArrowLeft, 
   Play, 
@@ -33,17 +34,12 @@ export default function GalleryPage({ portfolioItems = [], brandName, onBack }: 
     const fetchSamaroPhotos = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/samaro-gallery");
-        const data = await response.json();
+        const itemsList = await fetchSamaroGalleryClient();
         
-        if (data.success && data.items) {
-          // Merge static portfolio items and dynamic Samaro items while preventing duplicate urls
-          const existingUrls = new Set(portfolioItems.map(item => item.mediaUrl));
-          const uniqueSamaro = data.items.filter((item: PortfolioItem) => !existingUrls.has(item.mediaUrl));
-          setAllPhotos([...portfolioItems, ...uniqueSamaro]);
-        } else {
-          console.warn("Unable to load dynamic gallery, showing default portfolio:", data.error);
-        }
+        // Merge static portfolio items and dynamic Samaro items while preventing duplicate urls
+        const existingUrls = new Set(portfolioItems.map(item => item.mediaUrl));
+        const uniqueSamaro = itemsList.filter((item: PortfolioItem) => !existingUrls.has(item.mediaUrl));
+        setAllPhotos([...portfolioItems, ...uniqueSamaro]);
       } catch (err) {
         console.error("Failed to load samaro gallery:", err);
       } finally {
