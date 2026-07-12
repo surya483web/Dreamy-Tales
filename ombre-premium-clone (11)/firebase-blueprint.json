@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "Settings": {
+      "title": "Settings",
+      "description": "System settings, including homepage content structure and client contact inquiries.",
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "object",
+          "description": "Entire website layout content and section details."
+        },
+        "list": {
+          "type": "array",
+          "description": "A list of contact inquiries submitted by potential clients."
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/settings/{document}": {
+      "schema": "Settings",
+      "description": "Dynamic layout configurations and submitted inquiries."
+    }
+  }
+}

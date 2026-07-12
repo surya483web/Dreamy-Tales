@@ -1,0 +1,350 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-signature: "Alex Brush", cursive;
+  
+  --color-luxury-black: #0B0B0B;
+  --color-luxury-charcoal: #1C1C1C;
+  --color-luxury-gray: #E4E4E7;
+  --color-gold-light: #F4F4F5;
+  --color-gold: #000000;
+  --color-gold-dark: #000000;
+  
+  --animate-fade-in: fade-in 1s ease-out forwards;
+  --animate-slide-up: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar matching the premium design */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F4F4F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #18181B;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #000000;
+}
+
+/* Smooth HTML scroll with high-performance native scroll snapping */
+html {
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: 0px;
+  background-color: #0B0B0B;
+  color: #1C1C1C;
+}
+
+body {
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  background-color: #0B0B0B;
+}
+
+/* Scroll snap alignment for sections */
+.snap-section {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* Hide scrollbars for floating cards */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Card Reveal Sub-element Transitions (Apple-like Cinematic Entrance Reveals) */
+.card-container-inner h1,
+.card-container-inner h2,
+.card-container-inner h3,
+.card-container-inner p,
+.card-container-inner img,
+.card-container-inner button,
+.card-container-inner a,
+.card-container-inner .reveal-el {
+  transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+/* Inactive State: scaled up, hidden, or shifted */
+.card-inactive .card-container-inner h1,
+.card-inactive .card-container-inner h2,
+.card-inactive .card-container-inner h3,
+.card-inactive .card-container-inner .reveal-heading {
+  opacity: 0;
+  transform: translateY(32px) !important;
+}
+
+.card-inactive .card-container-inner p {
+  opacity: 0;
+  transform: translateY(20px) !important;
+}
+
+.card-inactive .card-container-inner img {
+  transform: scale(1.05) !important;
+}
+
+.card-inactive .card-container-inner button,
+.card-inactive .card-container-inner a {
+  opacity: 0;
+  transform: translateY(24px) !important;
+}
+
+.card-inactive .card-container-inner .reveal-el {
+  opacity: 0;
+  transform: translateY(16px) !important;
+}
+
+/* Active State: restored to standard layout naturally */
+.card-active .card-container-inner h1,
+.card-active .card-container-inner h2,
+.card-active .card-container-inner h3,
+.card-active .card-container-inner .reveal-heading {
+  opacity: 1;
+  transform: translateY(0) !important;
+}
+
+.card-active .card-container-inner p {
+  opacity: 1;
+  transform: translateY(0) !important;
+  transition-delay: 0.1s;
+}
+
+.card-active .card-container-inner img {
+  transform: scale(1) !important;
+  transition: transform 1.8s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.card-active .card-container-inner button,
+.card-active .card-container-inner a {
+  opacity: 1;
+  transform: translateY(0) !important;
+  transition-delay: 0.2s;
+}
+
+.card-active .card-container-inner .reveal-el {
+  opacity: 1;
+  transform: translateY(0) !important;
+  transition-delay: 0.3s;
+}
+
+/* Admin Panel White Theme Override Rules */
+#admin-panel-container {
+  background-color: #ffffff !important;
+  color: #18181b !important; /* zinc-900 */
+}
+
+#admin-panel-container header {
+  background-color: #fafafa !important; /* zinc-50 */
+  border-color: #e4e4e7 !important; /* zinc-200 */
+}
+
+#admin-panel-container header p {
+  color: #71717a !important; /* zinc-500 */
+}
+
+#admin-panel-container aside {
+  background-color: #f4f4f5 !important; /* zinc-100 */
+  border-color: #e4e4e7 !important; /* zinc-200 */
+}
+
+#admin-panel-container main {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+}
+
+/* Form controls and inputs style correction */
+#admin-panel-container input[type="text"],
+#admin-panel-container input[type="email"],
+#admin-panel-container input[type="number"],
+#admin-panel-container input[type="url"],
+#admin-panel-container textarea,
+#admin-panel-container select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important; /* slate-300 */
+  color: #0f172a !important; /* slate-900 */
+}
+
+#admin-panel-container input::placeholder,
+#admin-panel-container textarea::placeholder {
+  color: #94a3b8 !important; /* slate-400 */
+}
+
+#admin-panel-container label {
+  color: #475569 !important; /* slate-600 */
+}
+
+#admin-panel-container h3,
+#admin-panel-container h4,
+#admin-panel-container h5 {
+  color: #0f172a !important; /* slate-900 */
+}
+
+/* Override dark utility helper classes used in nested sections to fit beautifully in light theme */
+#admin-panel-container .text-white {
+  color: #0f172a !important;
+}
+
+#admin-panel-container .text-zinc-300 {
+  color: #1e293b !important;
+}
+
+#admin-panel-container .text-zinc-400 {
+  color: #475569 !important;
+}
+
+#admin-panel-container .text-zinc-500 {
+  color: #64748b !important;
+}
+
+#admin-panel-container .border-white\/5 {
+  border-color: #e2e8f0 !important; /* slate-200 */
+}
+
+#admin-panel-container .border-white\/10 {
+  border-color: #cbd5e1 !important; /* slate-300 */
+}
+
+#admin-panel-container .bg-white\/1,
+#admin-panel-container .bg-white\/2,
+#admin-panel-container .bg-white\/5 {
+  background-color: #f8fafc !important; /* slate-50 */
+}
+
+#admin-panel-container .bg-white\/10 {
+  background-color: #f1f5f9 !important; /* slate-100 */
+}
+
+#admin-panel-container .bg-black\/30,
+#admin-panel-container .bg-black\/40 {
+  background-color: #f1f5f9 !important; /* slate-100 */
+}
+
+#admin-panel-container .bg-zinc-950,
+#admin-panel-container .bg-zinc-900,
+#admin-panel-container .bg-zinc-800 {
+  background-color: #f1f5f9 !important; /* slate-100 */
+  color: #0f172a !important;
+}
+
+/* Sidebar tab navigation */
+#admin-panel-container aside button {
+  color: #475569 !important; /* slate-600 */
+}
+
+#admin-panel-container aside button:hover {
+  background-color: #e2e8f0 !important; /* slate-200 */
+  color: #000000 !important;
+}
+
+#admin-panel-container aside button.bg-gold\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #000000 !important;
+}
+
+/* Dropzone borders and hover states */
+#admin-panel-container .border-dashed {
+  border-color: #cbd5e1 !important;
+}
+
+#admin-panel-container .border-dashed:hover {
+  border-color: #000000 !important;
+}
+
+/* --- PREMIUM ADMIN BUTTONS GLOBAL BLACK/WHITE STYLE --- */
+#admin-panel-container button,
+#admin-panel-container label.cursor-pointer,
+#admin-panel-container label[for^="bulk-"] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid #000000 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#admin-panel-container button:hover:not(:disabled),
+#admin-panel-container label.cursor-pointer:hover,
+#admin-panel-container label[for^="bulk-"]:hover {
+  background-color: #27272a !important; /* zinc-800 */
+  color: #ffffff !important;
+  border-color: #27272a !important;
+}
+
+#admin-panel-container button:disabled {
+  background-color: #f4f4f5 !important; /* zinc-100 */
+  color: #a1a1aa !important; /* zinc-400 */
+  border-color: #e4e4e7 !important; /* zinc-200 */
+  cursor: not-allowed !important;
+}
+
+/* Specific UI exceptions like cancel/clear indicators and close controls */
+#admin-panel-container button[id$="-clear-btn"],
+#admin-panel-container button.text-red-500,
+#admin-panel-container button.hover\:text-red-600 {
+  background-color: transparent !important;
+  color: #ef4444 !important; /* red-500 */
+  border-color: transparent !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+}
+
+#admin-panel-container button[id$="-clear-btn"]:hover,
+#admin-panel-container button.text-red-500:hover {
+  color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  border-color: transparent !important;
+}
+
+#admin-panel-container button[id="close-admin-btn"] {
+  background-color: transparent !important;
+  color: #71717a !important;
+  border-color: transparent !important;
+}
+
+#admin-panel-container button[id="close-admin-btn"]:hover {
+  color: #000000 !important;
+  background-color: #f4f4f5 !important;
+  border-color: transparent !important;
+}
+
+/* Ensure the top right notification style is perfect */
+#notification-toast {
+  background-color: #f0fdf4 !important; /* light success */
+  color: #166534 !important;
+  border-bottom: 1px solid #bbf7d0 !important;
+}
+#notification-toast.bg-red-950\/20 {
+  background-color: #fef2f2 !important; /* light error */
+  color: #991b1b !important;
+  border-bottom: 1px solid #fecaca !important;
+}
+
+
